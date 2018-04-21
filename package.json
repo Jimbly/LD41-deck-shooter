@@ -1,0 +1,50 @@
+{
+  "name": "nextgen",
+  "version": "0.0.2",
+  "description": "Template for a state of the art Javascript project using Turbulenz",
+  "main": "build/server/index.js",
+  "keywords": [
+    "template",
+    "es2015",
+    "es6",
+    "browserify",
+    "babel"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Jimbly/turbulenz-playground.git"
+  },
+  "scripts": {
+    "start": "gulp browser-sync",
+    "build": "gulp build",
+    "prod": "gulp build && node build/server/index.js",
+    "client_js": "gulp client_js",
+    "lint": "jshint"
+  },
+  "author": "Jimb Esser (https://github.com/Jimbly)",
+  "contributors": [
+    "Jimb Esser (https://github.com/Jimbly)"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.13.3",
+    "lodash": "^3.10.1",
+    "random-seed": "^0.3.0"
+  },
+  "devDependencies": {
+    "babel-preset-env": "^1.6.0",
+    "babelify": "^7.3.0",
+    "browser-sync": "^2.18.13",
+    "browserify": "^14.4.0",
+    "gulp": "^3.9.1",
+    "gulp-babel": "^6.1.2",
+    "gulp-jshint": "^2.0.4",
+    "gulp-nodemon": "^2.2.1",
+    "gulp-sourcemaps": "^2.6.0",
+    "gulp-util": "^3.0.8",
+    "jshint": "^2.9.5",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0",
+    "watchify": "^3.9.0"
+  }
+}
