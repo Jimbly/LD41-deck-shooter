@@ -6,7 +6,7 @@ LD41 Entry by Jimbly
 Start with: `npm start` (after running `npm i` once)
 
 TODO
-* Figure out what to do.
+* Is DB-BHS fun?  Prototype basics
 
 Deckbuilding Bullet-hell Scope
 * Build a BHS
