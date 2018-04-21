@@ -8,24 +8,52 @@ Start with: `npm start` (after running `npm i` once)
 TODO
 * Is DB-BHS fun?  Prototype basics
 
-Deckbuilding Bullet-hell Scope
+Deckbuilding Bullet-hell Plan
 * Build a BHS
-  * avatar (movable with controls for debug)
-  * simple enemy movement and firing patterns
-  * collision detection / health
-  * later: simple powerups - spread, machine gun
+  X avatar (movable with controls for debug)
+  X simple enemy movement and firing patterns
+  X collision detection / health
+  * Add Physicality to player movement / use thrust!
+  * later: powerups - some reason to move to a particular position (just + 2 cards, maybe?)
   * later: allow retry/continue upon fail
+  * later: level progression
 * Card-playing while playing BHS
-  * Show hand of cards, with area for rollover description
-  * Click card, click target (or right click/click on-screen button to abort), generate input to BHS
-  * Cards draw into hand at regular intervals up to hand limit
+  X Show hand of cards
+  X Click card, generate input to BHS
+  X Cards draw into hand at regular intervals up to hand limit
   * later: Show hand limit (counters on empty slots?)
+* Metagame
+  * Choose new cards to add (and ones to trash) between levels
+  * Fixed progression of levels, or just get to choose easy/medium/hard and they set the rates for spawns?
+    * Gain some kind of resources that can be spent to improve your deck?
+* Defense Cards:
+  * Reaction Defense (prevents one hit)
+  * Shield (wipes out big area, slowly shrinks)
+  * Repair
+  * Draw 3
+* Offense Cards
+  * Spread
+  * Rapid fire
+  * Beam
+  * Homing
+* Enemies
+  X drone - Little guys that don't shoot, lots of them in formation
+  X sniper - Medium, circle movers, that shoot towards the player (deadly when closer)
+  X bomber - Medium, full left/right strafers that slowly show straight down - spawn pattern so bullets make a wave/wall
+  X large1 - Large, very slow horiz movement, lots of HP, does bursts of straight down firing
+  X large2 - Large, no horiz movement, lots of HP, does bursts of spread firing
+  * Spawn patterns
+  * Boss
+  * health bars? damage progression sprites?
 * Art
   * Avatar
   * Background
   * Enemies
   * Bullets
   * Explosions
+  * Sound FX
+  * Music
+
 
 Rhythm Tower Defense Scope
 * Build a rhythm game

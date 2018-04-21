@@ -11,6 +11,10 @@ export function easeOut(v, a) {
   return 2 * easeInOut(0.5 + 0.5 * v, a) - 1;
 }
 
+export function clone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 
 const EPSILON = 0.00001;
 
