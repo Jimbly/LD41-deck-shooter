@@ -34,6 +34,7 @@ function clamp(v, mn, mx) {
 
 export function main(canvas)
 {
+  const random_seed = require('random-seed');
   const glov_engine = require('./glov/engine.js');
   const glov_font = require('./glov/font.js');
 
@@ -67,6 +68,7 @@ export function main(canvas)
   const color_red = math_device.v4Build(1, 0, 0, 1);
   const color_green = math_device.v4Build(0, 1, 0, 1);
   const color_blue = math_device.v4Build(0, 0, 1, 1);
+  const color_ghost = math_device.v4Build(1, 1, 1, 0.5);
   //const color_yellow = math_device.v4Build(1, 1, 0, 1);
 
   // Cache key_codes
@@ -75,7 +77,6 @@ export function main(canvas)
 
   let game_state;
 
-  let level_num = 0;
   let enemy_types = ['drone', 'bomber', 'sniper', 'large1', 'large2'];
   let enemy_hps = [1, 2, 4, 20, 20];
   let sprites = {};
@@ -121,7 +122,7 @@ export function main(canvas)
   }
 
   const player_speed = 0.002;
-  const ZIGZAG = 300;
+  const ZIGZAG = 450;
   const SHIELD_SIZE = 2;
   const SHIELD_GROW_TIME = 250;
   const SHIELD_SHRINK_TIME = 2500;
@@ -134,7 +135,7 @@ export function main(canvas)
       name: 'MOVE LEFT',
       effects: [
         {
-          duration: 1000,
+          duration: 1100,
           dx: -1,
         },
       ],
@@ -144,7 +145,7 @@ export function main(canvas)
       name: 'MOVE RIGHT',
       effects: [
         {
-          duration: 1000,
+          duration: 1100,
           dx: 1,
         },
       ],
@@ -158,11 +159,11 @@ export function main(canvas)
           dx: -1,
         },
         {
-          duration: ZIGZAG * 2,
-          dx: 1.2,
+          duration: ZIGZAG * 2.5,
+          dx: 1,
         },
         {
-          duration: ZIGZAG * 1.5,
+          duration: ZIGZAG * 1.54,
           dx: -1,
         },
       ],
@@ -292,15 +293,16 @@ export function main(canvas)
   } else {
     // TESTING
     deck.push('zigzag');
+    deck.push('zigzag');
     deck.push('move_left');
     deck.push('move_right');
     // deck.push('repair');
     // deck.push('shield');
     // deck.push('react');
     // deck.push('draw3');
-    deck.push('spread');
-    deck.push('rapid');
-    deck.push('beam');
+    // deck.push('spread');
+    // deck.push('rapid');
+    // deck.push('beam');
     // TODO: deck.push('homing');
   }
   let discard = [];
@@ -354,7 +356,7 @@ export function main(canvas)
     color: math_device.v4Copy(color_white),
     bullet_speed: 0.005,
     fire_countdowns: [],
-    max_health: DEBUG ? 10 : 10,
+    max_health: DEBUG ? 1000 : 10,
   };
   for (let ii = 0; ii < weapons.length; ++ii) {
     player.fire_countdowns[ii] = 0;
@@ -618,6 +620,20 @@ export function main(canvas)
     if (!player_dead) {
       draw_list.queue(sprites.player, x, y, Z.SPRITES, player.color,
         player_scale);
+      if (!cards_in_play.length || cards_in_play.length === 1 && cards_in_play[0].id === 'react') {
+        if (mouseover_card === 'move_left') {
+          draw_list.queue(sprites.player, clamp(p.x - 2.25, player_border_pad, board_w - player_border_pad) * board_tile_w + board_x0, y /*- board_tile_w * 2*/, Z.SPRITES - 1, color_ghost, player_scale);
+        } else if (mouseover_card === 'move_right') {
+          draw_list.queue(sprites.player, clamp(p.x + 2.25, player_border_pad, board_w - player_border_pad) * board_tile_w + board_x0, y /*- board_tile_w * 2*/, Z.SPRITES - 1, color_ghost, player_scale);
+        } else if (mouseover_card === 'zigzag') {
+          let zx = clamp(p.x - 2.25 * 0.4, player_border_pad, board_w - player_border_pad);
+          draw_list.queue(sprites.player, zx * board_tile_w + board_x0, y /*- board_tile_w * 2 * 0.4*/, Z.SPRITES - 1, color_ghost, player_scale);
+          zx = clamp(zx + 2.25 * 0.4 * 2, player_border_pad, board_w - player_border_pad);
+          draw_list.queue(sprites.player, zx * board_tile_w + board_x0, y /*- board_tile_w * 2 * 0.4 * 3*/, Z.SPRITES - 1, color_ghost, player_scale);
+          zx = clamp(zx - 2.25 * 0.4, player_border_pad, board_w - player_border_pad);
+          draw_list.queue(sprites.player, zx * board_tile_w + board_x0, y /*- board_tile_w * 2 * 0.4 * 4*/, Z.SPRITES - 1, color_ghost, player_scale);
+        }
+      }
     }
 
     if (shield > 0.1) {
@@ -643,7 +659,8 @@ export function main(canvas)
     }
   }
 
-  function spawnDrones(spawns, t, mode) {
+
+  function spawnDrones(mode, t) {
     let count = (mode === 2) ? 20 : 10;
     let delay = (mode === 2) ? 120 : 400;
     for (let ii = 0; ii < count; ++ii) {
@@ -658,7 +675,7 @@ export function main(canvas)
       });
     }
   }
-  function spawnSnipers(spawns, t) {
+  function spawnSnipers(t) {
     let count = 3;
     let delay = 1500;
     for (let ii = 0; ii < count; ++ii) {
@@ -674,8 +691,8 @@ export function main(canvas)
       });
     }
   }
-  function spawnBombers(spawns, t) {
-    let x = board_w / 4  + board_w / 2 * Math.random();
+  function spawnBombers(rand, t) {
+    let x = board_w / 4  + board_w / 2 * rand.random();
     let count = 6;
     let delay = 400;
     for (let ii = 0; ii < count; ++ii) {
@@ -687,14 +704,14 @@ export function main(canvas)
       });
     }
   }
-  function spawnOne(spawns, t, type) {
+  function spawnOne(rand, type, t) {
     spawns.push({
       t,
-      x: 0.75 + Math.random() * (board_w - 1.5),
+      x: 1.25 + 0 * rand.random() * (board_w - 2.5),
       type,
     });
   }
-  function spawnPair(spawns, t, type) {
+  function spawnPair(type, t) {
     spawns.push({
       t,
       x: board_w / 4,
@@ -723,8 +740,120 @@ export function main(canvas)
     });
   }
 
+  function setupSpawns(seed, total_hp, time) {
+    let rand = random_seed.create(seed);
+
+    let options = [
+      {
+        weight: 4,
+        hp: 10, delay: [1,3],
+        fn: spawnDrones.bind(null, 0),
+      },
+      {
+        weight: 4,
+        hp: 10, delay: [1,3],
+        fn: spawnDrones.bind(null, 1),
+      },
+      {
+        weight: 4,
+        hp: 20, delay: [0,2],
+        fn: spawnDrones.bind(null, 2),
+      },
+      {
+        weight: 6,
+        hp: 12, delay: [2,4],
+        fn: spawnBombers.bind(null, rand),
+      },
+      {
+        weight: 4,
+        hp: 24, delay: [5, 7],
+        fn: spawnSnipers,
+      },
+      {
+        weight: 1,
+        hp: 20, delay: [5,10],
+        fn: spawnOne.bind(null, rand, 'large1'),
+      },
+      {
+        weight: 1,
+        hp: 20, delay: [5,10],
+        fn: spawnOne.bind(null, rand, 'large2'),
+      },
+      {
+        weight: 0.5,
+        hp: 40, delay: [10,20],
+        fn: spawnPair.bind(null, 'large1'),
+      },
+      {
+        weight: 0.5,
+        hp: 40, delay: [10,20],
+        fn: spawnPair.bind(null, 'large2'),
+      },
+    ];
+    let weight = 0;
+    for (let ii = 0; ii < options.length; ++ii) {
+      weight += options[ii].weight;
+    }
+    let choices = [];
+    let total_time = 0;
+    while (total_hp > 0) {
+      let r = rand.random() * weight;
+      let idx = 0;
+      while (true) {
+        r -= options[idx].weight;
+        if (r <= 0) {
+          break;
+        }
+        idx++;
+      }
+      total_hp -= options[idx].hp;
+      let delay = options[idx].delay;
+      let this_time = rand.floatBetween(delay[0], delay[1]);
+      total_time += this_time;
+      choices.push([this_time, idx]);
+    }
+    let time_scale = time / total_time;
+    console.log(`Total time = ${total_time}, time_scale=${time_scale}`);
+    // sort by difficulty
+    choices.sort(function (a, b) {
+      return a[1] - b[1];
+    });
+    // randomly permute a bit
+    for (let ii = 0; ii < choices.length - 1; ++ii) {
+      let idx = ii + rand(Math.min(4, choices.length - ii - 1));
+      let t = choices[ii];
+      choices[ii] = choices[idx];
+      choices[idx] = t;
+    }
+    // ensure no two identical things are next to each other
+    for (let ii = 0; ii < choices.length - 1; ++ii) {
+      if (choices[ii][1] === choices[ii+1][1]) {
+        // find the next non-matching and put it in ii+1
+        for (let jj = ii + 1; jj < choices.length; ++jj) {
+          if (choices[jj][1] !== choices[ii + 1][1]) {
+            let t = choices[ii + 1];
+            choices[ii + 1] = choices[jj];
+            choices[jj] = t;
+            break;
+          }
+        }
+      }
+    }
+    let t = 0;
+    for (let ii = 0; ii < choices.length; ++ii) {
+      options[choices[ii][1]].fn(t);
+      t += choices[ii][0] * time_scale;
+    }
+  }
+
   let level_timestamp;
-  let max_levels = 2;
+  let level_data = [
+    ['level1b', 170, 40000],
+    ['level2d', 200, 40000],
+    ['level3', 300, 55000],
+  ];
+  let level_num = 0;
+  let max_levels = level_data.length;
   function initLevel(level_num) {
     floaters = [];
     cardsToDeck();
@@ -737,24 +866,29 @@ export function main(canvas)
     bullets = [];
     spawns = [];
     level_timestamp = 0;
-    if (DEBUG) {
-      spawnDrones(spawns, 0, 0);
-      spawnOne(spawns, 0, 'large1');
-      spawnOne(spawns, 0, 'large1');
-      spawnOne(spawns, 0, 'large1');
-      spawnPair(spawns, 2000, 'large2');
-    } else if (level_num === 0) {
+    if (DEBUG && false) {
+      // let rand = random_seed.create('test');
+      // spawnDrones(0, 0);
+      // spawnOne(rand, 'large1', 0);
+      // spawnOne(rand, 'large1', 0);
+      // spawnOne(rand, 'large1', 0);
+      // spawnPair(rand, 'large2', 2000);
+      setupSpawns('level1a', 170, 40000);
+    } else if (level_num === 0 && false) {
       // 178 HP
-      spawnDrones(spawns, 0, 0);
-      spawnDrones(spawns, 2000, 1);
-      spawnBombers(spawns, 5000);
-      spawnBombers(spawns, 9000); // 4s between bombers looks good
-      spawnDrones(spawns, 12000, 2);
-      spawnSnipers(spawns, 12000);
-      spawnDrones(spawns, 14000, 0);
-      spawnOne(spawns, 20000, 'large2');
-      spawnOne(spawns, 25000, 'large1');
-      spawnPair(spawns, 35000, 'large1');
+      let rand = random_seed.create('test');
+      spawnDrones(0, 0);
+      spawnDrones(1, 2000);
+      spawnBombers(rand, 5000);
+      spawnBombers(rand, 9000); // 4s between bombers looks good
+      spawnDrones(2, 12000);
+      spawnSnipers(12000);
+      spawnDrones(0, 14000);
+      spawnOne(rand, 'large2', 20000);
+      spawnOne(rand, 'large1', 25000);
+      spawnPair('large1', 35000);
+    } else {
+      setupSpawns(level_data[level_num][0], level_data[level_num][1], level_data[level_num][2]);
     }
 
     spawns.sort(function (a, b) {
@@ -1071,7 +1205,9 @@ export function main(canvas)
       game_state = levelWon;
     }
   }
+  let mouseover_card = null;
   function drawHand(dt) {
+    mouseover_card = null;
     let hand_x0 = ui_x0;
     let hand_y0 = game_height - card_h - 50 - 40 - 24;
     let in_play_y0 = hand_y0 - card_h - 50;
@@ -1119,6 +1255,7 @@ export function main(canvas)
         String.fromCharCode('1'.charCodeAt(0) + ii));
       let scale = 1;
       if (playme || glov_input.isMouseOver(bounds)) {
+        mouseover_card = hand[ii];
         scale = 1.2;
         x -= (card_w * scale - card_w) / 2;
         y -= (card_h * scale - card_h) / 2;
@@ -1184,6 +1321,9 @@ export function main(canvas)
   }
 
   function gameplay(dt) {
+    if (DEBUG && glov_input.isKeyDown(key_codes.LEFT_SHIFT)) {
+      dt *= 3;
+    }
     player_dead = score.damage >= player.max_health;
     updatePlayer(dt);
     updateEnemies(dt);
@@ -1370,7 +1510,7 @@ export function main(canvas)
       money += 875;
     }
     let new_money = money;
-    if (level_num > 0) {
+    if (level_won_saved) {
       new_money -= level_won_saved.money;
     }
     score.money_total += new_money;

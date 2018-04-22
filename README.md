@@ -6,17 +6,16 @@ LD41 Entry by Jimbly
 Start with: `npm start` (after running `npm i` once)
 
 Next:
-* Make a set of 3 levels to progress through?
-  * First level needs to be easier, make sure everyone gets to deck building!
-* Make sure clicking randomly doesn't win - decrease draw speed?
-* Make sure enemies don't spawn where they move out of the shootable range
-* Adjust movement so just using left/right gets you the full breadth from the center?
-* Show preview of where move and zigzag will put your ship
 * Sound effects
 * Explosions
 * Scrolling layered background
+* Typography
 * Try putting deck under the action
+* Borders/frame
+* More levels - seed 10, order by difficulty?
+  * Or, continue to unlimited mode after beating level 3?
 * Add high scores?  Score is # of deaths, then total money earned?
+* Make sure clicking randomly doesn't win - decrease draw speed?
 
 Polish:
 * Re-do player and enemies and bullets
