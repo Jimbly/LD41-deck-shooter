@@ -6,8 +6,7 @@ LD41 Entry by Jimbly
 Start with: `npm start` (after running `npm i` once)
 
 Next:
-* Try putting deck under the action
-* Borders/frame
+* Borders/frame + slight vignette/glow
 * More levels - seed 10, order by difficulty?
   * Or, continue to unlimited mode after beating level 3?
 * Add high scores?  Score is # of deaths, then total money earned?

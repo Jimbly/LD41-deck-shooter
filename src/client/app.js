@@ -29,7 +29,7 @@ const TRASH_COST = 250;
 const MONEY_PER_HP = 5;
 
 // Virtual viewport for our game logic
-const game_width = 1280;
+const game_width = 1024;
 const game_height = 1024;
 
 function clamp(v, mn, mx) {
@@ -336,6 +336,12 @@ export function main(canvas)
     deck.push('shield');
     deck.push('react');
     deck.push('draw3');
+    deck.push('draw3');
+    deck.push('draw3');
+    deck.push('draw3');
+    deck.push('draw3');
+    deck.push('draw3');
+    deck.push('draw3');
     deck.push('spread');
     deck.push('rapid');
     deck.push('beam');
@@ -383,10 +389,14 @@ export function main(canvas)
   let board_h = 10;
   let bullets;
   let enemies;
-  let board_tile_h = game_height / board_h;
+  let card_h = 118;
+  let card_w = (2.5/3.5) * card_h;
+  const HAND_BELOW = true;
+  let hand_below_h = HAND_BELOW ? card_h + 48 + 20 : 0;
+  let board_tile_h = (game_height - hand_below_h) / board_h;
   let board_tile_w = board_tile_h;
   let board_x0 = board_tile_w / 2;
-  let board_y0 = game_height - board_tile_h * board_h;
+  let board_y0 = 0;
   let ui_x0 = board_x0 * 2 + board_w * board_tile_w;
   let player = {
     color: math_device.v4Copy(color_white),
@@ -1252,8 +1262,6 @@ export function main(canvas)
   });
 
   let draw_countdown = 0;
-  let card_h = 120;
-  let card_w = (2.5/3.5) * card_h;
   function drawCard(card, x, y, z, scale) {
     let pad = 0.05 * card_w * scale;
     let icon_w = card_w * scale - pad * 2;
@@ -1312,23 +1320,45 @@ export function main(canvas)
     glow_outer: 5,
     glow_color: 0x000000ff,
   });
-  function drawHand(dt) {
-    mouseover_card = null;
+  function drawInPlay(dt) {
     let hand_x0 = ui_x0;
-    let hand_y0 = game_height - card_h - 50 - 40 - 24;
-    let in_play_y0 = hand_y0 - card_h - 50;
+    let in_play_y0 = game_height - hand_below_h - card_h + 12;
 
     if (player_dead) {
-      glov_ui.print(style_hand_ui, hand_x0 + 24, hand_y0 + card_h / 2 - 12, Z.UI, 'SHIP DESTROYED');
       if (glov_ui.buttonText({
         x: hand_x0 + 24,
-        y: hand_y0 - 80,
+        y: in_play_y0,
         font_height: 48,
         text: 'Retry level'
       })) {
         score.retries++;
         retryLevel();
       }
+      return;
+    }
+
+    glov_ui.print(style_hand_ui, hand_x0, in_play_y0 - 40, Z.UI, 'IN PLAY');
+
+    for (let ii = cards_in_play.length - 1; ii >= 0; --ii) {
+      let x = hand_x0 + card_w * ii;
+      let z = Z.UI + ii * 10;
+      let card = cards_in_play[ii];
+      let left = 0;
+      for (let jj = 0; jj < card.effects.length; ++jj) {
+        left += card.effects[jj].duration;
+      }
+      drawCard(card, x, in_play_y0, z, 1);
+      glov_ui.drawRect(x, in_play_y0 + left / card.total * card_h, x + card_w, in_play_y0 + card_h, z + 2, [0, 0, 0, 0.5]);
+    }
+
+  }
+  function drawHand(dt) {
+    mouseover_card = null;
+    let hand_x0 = HAND_BELOW ? board_x0 : ui_x0;
+    let hand_y0 = game_height - (HAND_BELOW ? hand_below_h - 40 : card_h - 50 - 40 - 24);
+
+    if (player_dead) {
+      glov_ui.print(style_hand_ui, hand_x0 + 24, hand_y0 + card_h / 2 - 12, Z.UI, 'SHIP DESTROYED');
       return;
     }
 
@@ -1341,9 +1371,7 @@ export function main(canvas)
       draw_countdown -= dt;
     }
 
-    glov_ui.print(style_hand_ui, hand_x0, in_play_y0 - 40, Z.UI, 'IN PLAY');
-
-    glov_ui.print(style_hand_ui, hand_x0, hand_y0 - 40, Z.UI, 'HAND');
+    glov_ui.print(style_hand_ui, hand_x0, hand_y0 - 38, Z.UI, 'HAND');
 
     for (let ii = hand.length - 1; ii >= 0; --ii) {
       let x = hand_x0 + card_w * ii;
@@ -1356,9 +1384,12 @@ export function main(canvas)
         w: card_w,
         h: card_h,
       };
-      let playme = glov_input.clickHit(bounds) || glov_input.keyDownHit(key_codes.NUMBER_1 + ii);
-      font.drawSizedAligned(glov_font.styleColored(null, 0xAAAAAAff), x, y + bounds.h, z, 18, glov_font.ALIGN.HCENTER, bounds.w, 0,
-        String.fromCharCode('1'.charCodeAt(0) + ii));
+      let playme = glov_input.clickHit(bounds);
+      if (ii < 9) {
+        playme = playme || glov_input.keyDownHit(key_codes.NUMBER_1 + ii);
+        font.drawSizedAligned(glov_font.styleColored(null, 0xAAAAAAff), x, y + bounds.h, z, 18, glov_font.ALIGN.HCENTER, bounds.w, 0,
+          String.fromCharCode('1'.charCodeAt(0) + ii));
+      }
       let scale = 1;
       if (playme || glov_input.isMouseOver(bounds)) {
         glov_ui.setMouseOver('card' + ii);
@@ -1380,7 +1411,7 @@ export function main(canvas)
 
     {
       let style = glov_font.styleColored(style_hand_ui, 0xDDDDDDff);
-      let x = ui_x0 + card_w * hand.length;
+      let x = hand_x0 + card_w * hand.length;
       let y = hand_y0;
       let message = 'Draw...';
       let text_x = x + 5;
@@ -1397,41 +1428,34 @@ export function main(canvas)
         glov_ui.drawRect(x, y + draw_countdown / DRAW_RATE * card_h, x + card_w, y + card_h, Z.UI, [0.5, 0.5, 0.5, 1]);
       }
     }
-
-    for (let ii = cards_in_play.length - 1; ii >= 0; --ii) {
-      let x = hand_x0 + card_w * ii;
-      let z = Z.UI + ii * 10;
-      let card = cards_in_play[ii];
-      let left = 0;
-      for (let jj = 0; jj < card.effects.length; ++jj) {
-        left += card.effects[jj].duration;
-      }
-      drawCard(card, x, in_play_y0, z, 1);
-      glov_ui.drawRect(x, in_play_y0 + left / card.total * card_h, x + card_w, in_play_y0 + card_h, z + 2, [0, 0, 0, 0.5]);
-    }
   }
 
   function drawBottomUI() {
-    let y = game_height - 16;
+    let x = ui_x0;
+    let y = game_height - hand_below_h - card_h - 40;
     y-= 24;
     glov_ui.print(glov_font.style(null, {
       color: 0xFFFFFFff,
       outline_width: 3,
       outline_color: 0x00000080,
-    }), ui_x0, y, Z.UI,
+    }), x, y, Z.UI,
       `Cash: \$${score.money}    Level: ${level_num + 1} / ${max_levels}`);
     y -= 4;
+
+
+    let xoffs = 90;
+    x = board_x0 + xoffs;
+    y = game_height - hand_below_h;
     let health_height = 24 + 8;
-    let health_width = 400;
+    let health_width = board_w * board_tile_w - xoffs;
     let health = player.max_health - score.damage;
-    y -= health_height;
-    glov_ui.drawRect(ui_x0, y, ui_x0 + health_width, y + health_height, Z.UI, [0.5, 0, 0, 1]);
-    glov_ui.drawRect(ui_x0, y, ui_x0 + health_width * health / player.max_health, y + health_height, Z.UI + 1, [0, 0.5, 0, 1]);
+    glov_ui.drawRect(x, y, x + health_width, y + health_height, Z.UI, [0.5, 0, 0, 1]);
+    glov_ui.drawRect(x, y, x + health_width * health / player.max_health, y + health_height, Z.UI + 1, [0, 0.5, 0, 1]);
     glov_ui.print(glov_font.style(null, {
       color: 0xFFFFFFff,
       outline_width: 3,
       outline_color: 0x000000DD,
-    }), ui_x0 + 8, y + 4, Z.UI + 2,
+    }), x + 8, y + 4, Z.UI + 2,
       `Health: ${health} / ${player.max_health}`);
   }
 
@@ -1476,6 +1500,7 @@ export function main(canvas)
     updatePlayer(dt);
     updateEnemies(dt);
     updateBullets(dt);
+    drawInPlay(dt);
     drawHand(dt);
 
     drawBottomUI(dt);
