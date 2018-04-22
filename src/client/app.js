@@ -13,6 +13,7 @@ window.Z = window.Z || {};
 Z.BACKGROUND = 0;
 Z.SPRITES = 10;
 Z.PARTICLES = 20;
+Z.BORDER = 30;
 Z.FLOAT = 100;
 
 const DEBUG = window.location.toString().indexOf('localhost') !== -1;
@@ -1484,13 +1485,13 @@ export function main(canvas)
     drawBackground(dt);
 
     // left of game area
-    draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [board_x0 - glov_camera.x0(), glov_camera.y1() - glov_camera.y0()]);
+    draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.BORDER, [0.2, 0.2, 0.2, 1], [board_x0 - glov_camera.x0(), glov_camera.y1() - glov_camera.y0()]);
     // right of game area
-    draw_list.queue(sprites.white, board_x0 + board_tile_w * board_w, glov_camera.y0(), Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [1e9, glov_camera.y1() - glov_camera.y0()]);
+    draw_list.queue(sprites.white, board_x0 + board_tile_w * board_w, glov_camera.y0(), Z.BORDER, [0.2, 0.2, 0.2, 1], [1e9, glov_camera.y1() - glov_camera.y0()]);
     // bottom
-    draw_list.queue(sprites.white, glov_camera.x0(), board_y0 + board_tile_h * board_h, Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [1e9, 1e9]);
+    draw_list.queue(sprites.white, glov_camera.x0(), board_y0 + board_tile_h * board_h, Z.BORDER, [0.2, 0.2, 0.2, 1], [1e9, 1e9]);
     // top
-    draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [1e9, board_y0 - glov_camera.y0()]);
+    draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.BORDER, [0.2, 0.2, 0.2, 1], [1e9, board_y0 - glov_camera.y0()]);
 
     let level_won = !spawns.length && !enemies.length && !bullets.length && !player_dead || DEBUG && false;
     if (level_won) {
