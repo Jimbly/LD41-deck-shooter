@@ -11,9 +11,11 @@ const util = require('./glov/util.js');
 window.Z = window.Z || {};
 Z.BACKGROUND = 0;
 Z.SPRITES = 10;
+Z.FLOAT = 100;
 
 const DEBUG = window.location.toString().indexOf('localhost') !== -1;
 
+let levelWon;
 let levelWonInit;
 
 // Balance params
@@ -50,6 +52,8 @@ export function main(canvas)
   const draw_list = glov_engine.draw_list;
   const font = glov_engine.font;
 
+  glov_ui.button_width = 400;
+  glov_ui.button_height = 64;
 
   const loadTexture = glov_sprite.loadTexture.bind(glov_sprite);
   const createSprite = glov_sprite.createSprite.bind(glov_sprite);
@@ -63,7 +67,7 @@ export function main(canvas)
   const color_red = math_device.v4Build(1, 0, 0, 1);
   const color_green = math_device.v4Build(0, 1, 0, 1);
   const color_blue = math_device.v4Build(0, 0, 1, 1);
-  const color_yellow = math_device.v4Build(1, 1, 0, 1);
+  //const color_yellow = math_device.v4Build(1, 1, 0, 1);
 
   // Cache key_codes
   const key_codes = glov_input.key_codes;
@@ -71,6 +75,7 @@ export function main(canvas)
 
   let game_state;
 
+  let level_num = 0;
   let enemy_types = ['drone', 'bomber', 'sniper', 'large1', 'large2'];
   let enemy_hps = [1, 2, 4, 20, 20];
   let sprites = {};
@@ -224,7 +229,7 @@ export function main(canvas)
       sprite_idx: 8,
       effects: [
         {
-          duration: 3000,
+          duration: 2500,
           weapon: 'rapid',
         }
       ],
@@ -234,7 +239,7 @@ export function main(canvas)
       sprite_idx: 9,
       effects: [
         {
-          duration: 3000,
+          duration: 2000,
           weapon: 'beam',
         }
       ],
@@ -266,7 +271,7 @@ export function main(canvas)
   }
 
   let deck = [];
-  if (!DEBUG || true) {
+  if (!DEBUG) {
     // starting deck
     for (let ii = 0; ii < 4; ++ii) {
       deck.push('move_left');
@@ -276,15 +281,23 @@ export function main(canvas)
       deck.push('zigzag');
     }
     deck.push('repair');
+    if (false) {
+      deck.push('shield');
+      deck.push('react');
+      deck.push('draw3');
+      deck.push('spread');
+      deck.push('rapid');
+      deck.push('beam');
+    }
   } else {
     // TESTING
     deck.push('zigzag');
     deck.push('move_left');
     deck.push('move_right');
-    deck.push('repair');
-    deck.push('shield');
-    deck.push('react');
-    deck.push('draw3');
+    // deck.push('repair');
+    // deck.push('shield');
+    // deck.push('react');
+    // deck.push('draw3');
     deck.push('spread');
     deck.push('rapid');
     deck.push('beam');
@@ -322,9 +335,11 @@ export function main(canvas)
   }
 
   let score = {
+    retries: 0,
     kills: 0,
     damage: 0,
     money: 0,
+    money_total: 0,
   };
   let board_w = 5;
   let board_h = 10;
@@ -369,14 +384,14 @@ export function main(canvas)
     });
   }
   function fireWeapon(weapon, dt) {
-    if (weapon === 'regular' || weapon === 'spread') {
+    if (weapon === 'regular') {
       playerAddBullet(dt, 0, -player.bullet_speed);
-      if (weapon === 'spread') {
-        playerAddBullet(dt, player.bullet_speed * player_spread_factor_x * -1,
-          -player.bullet_speed * player_spread_factor_y);
-        playerAddBullet(dt, -player.bullet_speed * player_spread_factor_x * -1,
-          -player.bullet_speed * player_spread_factor_y);
-      }
+    }
+    if (weapon === 'spread') {
+      playerAddBullet(dt, player.bullet_speed * player_spread_factor_x * -1,
+        -player.bullet_speed * player_spread_factor_y);
+      playerAddBullet(dt, -player.bullet_speed * player_spread_factor_x * -1,
+        -player.bullet_speed * player_spread_factor_y);
     }
     if (weapon === 'rapid') {
       playerAddBullet(dt, 0, -player.bullet_speed, -0.22, 0.05);
@@ -400,6 +415,48 @@ export function main(canvas)
     return cur_dx;
   }
 
+  const FLOATER_DIST = 32;
+  const FLOATER_SIZE = 16;
+  const FLOAT_SCORE_TIME = 750;
+  let floaters = [];
+  function floatText(x, y, time, text, style) { // addFloater
+    floaters.push({
+      x, y, z: Z.FLOAT, style,
+      text,
+      t: 0,
+      time,
+    });
+  }
+  function drawFloaters(dt) {
+    for (let ii = floaters.length - 1; ii >= 0; --ii) {
+      let fl = floaters[ii];
+      fl.t += dt;
+      let y = fl.y - util.easeOut(fl.t / fl.time, 2) * FLOATER_DIST;
+      if (fl.t > fl.time) {
+        floaters[ii] = floaters[floaters.length - 1];
+        floaters.pop();
+      } else {
+        /*jshint bitwise:false*/
+        let a = Math.min(1, (2 - 2 * fl.t / fl.time)) * 255 | 0;
+        let style = glov_font.style(fl.style, {
+          color: fl.style.color & 0xFFFFFF00 | a,
+          outline_color: fl.style.outline_color & 0xFFFFFF00 | a,
+        });
+        font.drawSized(style, fl.x, y, fl.z, FLOATER_SIZE, fl.text);
+      }
+    }
+  }
+
+  let float_score_style = glov_font.style(null, {
+    color: 0x00FF00ff,
+  });
+  function addMoney(x, y, m) {
+    score.money += m;
+    x = board_x0 + x * board_tile_w - 15;
+    y = board_y0 + y * board_tile_h;
+    floatText(x, y, FLOAT_SCORE_TIME, `+\$${m}`, float_score_style);
+  }
+
   function updatePlayer(dt) {
     let p = player;
     let dx = 0;
@@ -414,6 +471,9 @@ export function main(canvas)
         dy = -1;
       } else if (glov_input.isKeyDown(key_codes.DOWN) || glov_input.isKeyDown(key_codes.S) || glov_input.isPadButtonDown(0, pad_codes.DOWN)) {
         dy = 1;
+      }
+      if (glov_input.keyDownHit(key_codes.K)) {
+        score.damage = player.max_health;
       }
     }
     let shield = 0;
@@ -500,7 +560,7 @@ export function main(canvas)
       if ((b.x - p.x) * (b.x - p.x) + (b.y - p.y) * (b.y - p.y) <= dist) {
         // kill enemy, take damage, score
         score.kills++;
-        score.money += MONEY_PER_HP * b.max_hp;
+        addMoney(b.x, b.y, MONEY_PER_HP * b.max_hp);
         enemies[jj] = enemies[enemies.length - 1];
         enemies.pop();
         player_hit = true;
@@ -555,8 +615,10 @@ export function main(canvas)
 
     let x = board_x0 + p.x * board_tile_w;
     let y = board_y0 + p.y * board_tile_h;
-    draw_list.queue(sprites.player, x, y, Z.SPRITES, player.color,
-      player_scale);
+    if (!player_dead) {
+      draw_list.queue(sprites.player, x, y, Z.SPRITES, player.color,
+        player_scale);
+    }
 
     if (shield > 0.1) {
       glov_ui.drawHollowCircle(x, y, Z.SPRITES - 1, shield * board_tile_w, 0.9, color_blue);
@@ -652,10 +714,19 @@ export function main(canvas)
     discard = [];
     hand = [];
     cards_in_play = [];
+    deck.sort(function (a, b) {
+      let r = cards[a].tier - cards[b].tier;
+      if (r) {
+        return r;
+      }
+      return (a < b) ? -1 : (a > b) ? 1 : 0;
+    });
   }
 
   let level_timestamp;
+  let max_levels = 2;
   function initLevel(level_num) {
+    floaters = [];
     cardsToDeck();
     shuffle();
     while (draw()) {}
@@ -666,11 +737,12 @@ export function main(canvas)
     bullets = [];
     spawns = [];
     level_timestamp = 0;
-    if (DEBUG && false) {
+    if (DEBUG) {
       spawnDrones(spawns, 0, 0);
-      // spawnOne(spawns, 0, 'large1');
-      // spawnOne(spawns, 0, 'large1');
-      // spawnOne(spawns, 0, 'large1');
+      spawnOne(spawns, 0, 'large1');
+      spawnOne(spawns, 0, 'large1');
+      spawnOne(spawns, 0, 'large1');
+      spawnPair(spawns, 2000, 'large2');
     } else if (level_num === 0) {
       // 178 HP
       spawnDrones(spawns, 0, 0);
@@ -889,7 +961,7 @@ export function main(canvas)
       }
       if (!e.hp) {
         score.kills++;
-        score.money += MONEY_PER_HP * e.max_hp;
+        addMoney(e.x, e.y, MONEY_PER_HP * e.max_hp);
       }
       if (!e.hp || e.y > board_h + 0.5) {
         enemies[ii] = enemies[enemies.length - 1];
@@ -929,8 +1001,8 @@ export function main(canvas)
         let health_height = 6;
         let health_width = 32;
         let health_y = y - 24;
-        glov_ui.drawRect(x - health_width / 2, health_y, x + health_width / 2, health_y + health_height, Z.UI, [0.5, 0, 0, 1]);
-        glov_ui.drawRect(x - health_width / 2, health_y, x - health_width / 2 + health_width * e.hp / e.max_hp, health_y + health_height, Z.UI + 1, [0, 0.5, 0, 1]);
+        glov_ui.drawRect(x - health_width / 2, health_y, x + health_width / 2, health_y + health_height, Z.SPRITES + 10, [0.5, 0, 0, 1]);
+        glov_ui.drawRect(x - health_width / 2, health_y, x - health_width / 2 + health_width * e.hp / e.max_hp, health_y + health_height, Z.SPRITES + 11, [0, 0.5, 0, 1]);
       }
       draw_list.queue(sprites.enemies[e.name],
         x, y, Z.SPRITES, color,
@@ -969,13 +1041,52 @@ export function main(canvas)
       h: card_h * scale,
     });
   }
+  let money;
+  let cards_for_sale;
+  let level_won_saved;
+  let level_won_is_victory;
+  function genCardsForSale() {
+    cards_for_sale = [];
+    for (let ii = 0; ii < cards_by_tier.length; ++ii) {
+      for (let jj = 0; jj < 2; ++jj) {
+        let idx = randInt(cards_by_tier[ii].length);
+        cards_for_sale.push(cards_by_tier[ii][idx]);
+      }
+    }
+    level_won_saved.cards = util.clone(cards_for_sale);
+  }
+  function retryLevel() {
+    if (level_num === 0) {
+      // Just reset everything to defaults, no buying of anything
+      score.money = 0;
+      initLevel(level_num);
+    } else {
+      // revert money, go back to buying things
+      cardsToDeck();
+      money = score.money = level_won_saved.money;
+      deck = util.clone(level_won_saved.deck);
+      level_won_is_victory = false;
+      --level_num;
+      genCardsForSale();
+      game_state = levelWon;
+    }
+  }
   function drawHand(dt) {
     let hand_x0 = ui_x0;
-    let hand_y0 = game_height - card_h - 50 - 40;
+    let hand_y0 = game_height - card_h - 50 - 40 - 24;
     let in_play_y0 = hand_y0 - card_h - 50;
 
     if (player_dead) {
-      glov_ui.print(null, hand_x0 + 24, hand_y0 + card_h/2 - 12, Z.UI, 'SHIP DESTROYED');
+      glov_ui.print(null, hand_x0 + 24, hand_y0 + card_h / 2 - 12, Z.UI, 'SHIP DESTROYED');
+      if (glov_ui.buttonText({
+        x: hand_x0 + 24,
+        y: hand_y0 - 80,
+        font_height: 48,
+        text: 'Retry level'
+      })) {
+        score.retries++;
+        retryLevel();
+      }
       return;
     }
 
@@ -1003,7 +1114,9 @@ export function main(canvas)
         w: card_w,
         h: card_h,
       };
-      let playme = glov_input.clickHit(bounds);
+      let playme = glov_input.clickHit(bounds) || glov_input.keyDownHit(key_codes.NUMBER_1 + ii);
+      font.drawSizedAligned(glov_font.styleColored(null, 0xAAAAAAff), x, y + bounds.h, z, 18, glov_font.ALIGN.HCENTER, bounds.w, 0,
+        String.fromCharCode('1'.charCodeAt(0) + ii));
       let scale = 1;
       if (playme || glov_input.isMouseOver(bounds)) {
         scale = 1.2;
@@ -1058,7 +1171,7 @@ export function main(canvas)
     let y = game_height - 16;
     y-= 24;
     glov_ui.print(glov_font.styleColored(null, 0xFFFFFFff), ui_x0, y, Z.UI,
-      `Enemies killed: ${score.kills}`);
+      `Cash: \$${score.money}    Level: ${level_num + 1} / ${max_levels}`);
     y -= 4;
     let health_height = 24 + 8;
     let health_width = 400;
@@ -1079,6 +1192,8 @@ export function main(canvas)
 
     drawBottomUI(dt);
 
+    drawFloaters(dt);
+
     // game area background
     draw_list.queue(sprites.white, board_x0, board_y0, Z.BACKGROUND + 1, [0, 0, 0, 1], [board_tile_w * board_w, board_tile_h * board_h]);
 
@@ -1091,13 +1206,12 @@ export function main(canvas)
     // top
     draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [1e9, board_y0 - glov_camera.y0()]);
 
-    let level_won = !spawns.length && !enemies.length && !bullets.length && !player_dead || DEBUG;
+    let level_won = !spawns.length && !enemies.length && !bullets.length && !player_dead || DEBUG && false;
     if (level_won) {
       game_state = levelWonInit;
     }
   }
 
-  let level_num = 0;
   function gameplayInit(dt) {
     initLevel(level_num);
     $('.screen').hide();
@@ -1106,14 +1220,13 @@ export function main(canvas)
     gameplay(dt);
   }
 
-  let money;
-  let cards_for_sale;
-  let level_won_saved;
-  function levelWon(dt) {
+  levelWon = function() {
     let y = 20;
     glov_ui.drawRect(20, y, game_width - 20, y + 180, Z.UI - 1, [0.2, 0.2, 0.2, 1]);
-    font.drawSizedAligned(glov_font.styleColored(null, 0x80FF80ff), 0, 0,
-      Z.UI, 96, glov_font.ALIGN.HVCENTERFIT, game_width, 200, 'VICTORY!');
+    font.drawSizedAligned(glov_font.styleColored(null, 0xAAAAAAff), 0, 28,
+      Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Level ${level_num+1} ${level_won_is_victory ? 'Complete' : 'Failed'}!`);
+    font.drawSizedAligned(glov_font.styleColored(null, level_won_is_victory ? 0x80FF80ff : 0xFF8080ff), 0, 0,
+      Z.UI, 96, glov_font.ALIGN.HVCENTERFIT, game_width, 200, level_won_is_victory ? 'VICTORY!' : 'RETRY LEVEL');
     y += 130;
     font.drawSizedAligned(glov_font.styleColored(null, 0xFFFF00ff), 0, y,
       Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Cash: \$${money}`);
@@ -1124,6 +1237,25 @@ export function main(canvas)
 
     let x = 40;
     const section_style = glov_font.styleColored(null, 0xFFFFFFff);
+
+    if (level_num + 1 === max_levels) {
+      y += 36 + 8;
+      font.drawSizedAligned(section_style, 0, y,
+        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, 'All levels complete!');
+      y += 36 + 8;
+      font.drawSizedAligned(section_style, 0, y,
+        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, 'Thanks for playing!');
+      y += 36 + 8;
+      y += 36 + 8;
+      font.drawSizedAligned(section_style, 0, y,
+        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Deaths: ${score.retries}`);
+      y += 36 + 8;
+      font.drawSizedAligned(section_style, 0, y,
+        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Total Cash Earned: \$${score.money_total}`);
+      y += 36 + 8;
+      return;
+    }
+
     font.drawSized(section_style, x, y, Z.UI, 36, 'BUY NEW CARDS:');
     y += 36 + 8;
     let scale = 1.5;
@@ -1163,7 +1295,7 @@ export function main(canvas)
       }
     }
     y += card_h * scale + 40;
-    font.drawSized(section_style, x, y, Z.UI, 36, `TRASH CARDS (remove from deck, minimum 5):`);
+    font.drawSized(section_style, x, y, Z.UI, 36, `YOUR DECK (minimum 5 cards) click to trash:`);
     y += 36 + 8;
     let afford = TRASH_COST <= money && (deck.length > 5);
     scale = 1.0;
@@ -1209,8 +1341,6 @@ export function main(canvas)
     if (money !== level_won_saved.money &&  glov_ui.buttonText({
       x: game_width / 2 - 400 - 20,
       y: game_height - 64 - 80,
-      w: 400,
-      h: 64,
       font_height: 48,
       text: 'UNDO'
     })) {
@@ -1222,8 +1352,6 @@ export function main(canvas)
     if (glov_ui.buttonText({
       x: game_width / 2 + 20,
       y: game_height - 64 - 80,
-      w: 400,
-      h: 64,
       font_height: 48,
       text: 'Next Level'
     })) {
@@ -1231,34 +1359,26 @@ export function main(canvas)
       game_state = gameplayInit;
       score.money = money;
     }
-  }
+  };
 
   levelWonInit = function (dt) {
     cardsToDeck();
-    deck.sort(function (a, b) {
-      let r = cards[a].tier - cards[b].tier;
-      if (r) {
-        return r;
-      }
-      return (a < b) ? -1 : (a > b) ? 1 : 0;
-    });
+    level_won_is_victory = true;
     game_state = levelWon;
     money = score.money;
-    if (DEBUG) {
+    if (DEBUG && false) {
       money += 875;
     }
-    cards_for_sale = [];
-    for (let ii = 0; ii < cards_by_tier.length; ++ii) {
-      for (let jj = 0; jj < 2; ++jj) {
-        let idx = randInt(cards_by_tier[ii].length);
-        cards_for_sale.push(cards_by_tier[ii][idx]);
-      }
+    let new_money = money;
+    if (level_num > 0) {
+      new_money -= level_won_saved.money;
     }
+    score.money_total += new_money;
     level_won_saved = {
       deck: util.clone(deck),
-      cards: util.clone(cards_for_sale),
       money: money,
     };
+    genCardsForSale();
     levelWon(dt);
   };
 

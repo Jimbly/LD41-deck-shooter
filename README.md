@@ -5,10 +5,25 @@ LD41 Entry by Jimbly
 
 Start with: `npm start` (after running `npm i` once)
 
-TODO:
-
-* Make work in FireFox - getting some sound errors!
+Next:
+* Make a set of 3 levels to progress through?
+  * First level needs to be easier, make sure everyone gets to deck building!
 * Make sure clicking randomly doesn't win - decrease draw speed?
+* Make sure enemies don't spawn where they move out of the shootable range
+* Adjust movement so just using left/right gets you the full breadth from the center?
+* Show preview of where move and zigzag will put your ship
+* Sound effects
+* Explosions
+* Scrolling layered background
+* Try putting deck under the action
+* Add high scores?  Score is # of deaths, then total money earned?
+
+Polish:
+* Re-do player and enemies and bullets
+* Upgrades for health, hand size, unlimited mode
+
+Stretch:
+* Make a boss
 
 Deckbuilding Bullet-hell Plan / TODO list
 * Build a BHS
@@ -16,7 +31,9 @@ Deckbuilding Bullet-hell Plan / TODO list
   X simple enemy movement and firing patterns
   X collision detection / health
   X Add Physicality to player movement / use thrust!
-  * later: allow retry/continue upon fail
+  X later: allow retry/continue upon fail
+    X If past level 1, revert to saved state from before purchasing upgrades, and let them re-choose upgrades
+    * Or, should they get money so they can maybe beat it more easily?
   * later: level progression
   * later: powerups - some reason to move to a particular position (just +2 cards, maybe?)
 X Card-playing while playing BHS
@@ -25,9 +42,9 @@ X Card-playing while playing BHS
   X Cards draw into hand at regular intervals up to hand limit
   X Show hand limit (counters on empty slots?)
 * Metagame
-  * Choose new cards to add (and ones to trash) between levels
+  X Choose new cards to add (and ones to trash) between levels
+  X Gain some kind of resources that can be spent to improve your deck?
   * Fixed progression of levels, or just get to choose easy/medium/hard and they set the rates for spawns?
-    * Gain some kind of resources that can be spent to improve your deck?
 X Defense Cards:
   X Reaction Defense (prevents one hit)
   X Shield (wipes out big area, slowly shrinks)
