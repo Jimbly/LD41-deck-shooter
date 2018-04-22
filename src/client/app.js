@@ -12,6 +12,8 @@ window.Z = window.Z || {};
 Z.BACKGROUND = 0;
 Z.SPRITES = 10;
 
+const DEBUG = window.location.toString().indexOf('localhost') !== -1;
+
 // Virtual viewport for our game logic
 const game_width = 1280;
 const game_height = 1024;
@@ -38,7 +40,7 @@ export function main(canvas)
   const glov_sprite = glov_engine.glov_sprite;
   const glov_ui = glov_engine.glov_ui;
   const draw_list = glov_engine.draw_list;
-  // const font = glov_engine.font;
+  const font = glov_engine.font;
 
 
   const loadTexture = glov_sprite.loadTexture.bind(glov_sprite);
@@ -52,6 +54,7 @@ export function main(canvas)
   const color_white = math_device.v4Build(1, 1, 1, 1);
   const color_red = math_device.v4Build(1, 0, 0, 1);
   const color_green = math_device.v4Build(0, 1, 0, 1);
+  const color_blue = math_device.v4Build(0, 0, 1, 1);
   const color_yellow = math_device.v4Build(1, 1, 0, 1);
 
   // Cache key_codes
@@ -94,37 +97,47 @@ export function main(canvas)
     sprites.bullet_small = loadSprite('bullet_small.png', bullet_size, bullet_size);
     sprites.bullet_large = loadSprite('bullet_large.png', bullet_size, bullet_size);
 
+    sprites.cards = glov_ui.loadSpriteRect('cards.png', [13, 13, 13], [13, 13, 13, 13]);
+
     sprites.game_bg = loadSprite('white', 1, 1, {
       width : game_width,
       height : game_height,
-      color : [0, 0.72, 1, 1],
       origin: [0, 0],
     });
   }
 
-  let player_speed = 0.002;
-  let ZIGZAG = 300;
+  const player_speed = 0.002;
+  const ZIGZAG = 300;
+  const SHIELD_SIZE = 2;
+  const SHIELD_GROW_TIME = 250;
+  const SHIELD_SHRINK_TIME = 2500;
+  let weapons = ['regular', 'spread', 'rapid', 'beam', 'homing'];
+  const FIRE_DELAY_REGULAR = 60 * 4;
+  let fire_delay = [FIRE_DELAY_REGULAR, FIRE_DELAY_REGULAR, FIRE_DELAY_REGULAR / 2, 16, FIRE_DELAY_REGULAR * 2];
+  const BEAM_SPEED_SCALE = 3;
   let cards = {
     move_left: {
-      name: 'Move Left',
+      name: 'MOVE LEFT',
       effects: [
         {
           duration: 1000,
           dx: -1,
         },
-      ]
+      ],
+      sprite_idx: 0,
     },
     move_right: {
-      name: 'Move Right',
+      name: 'MOVE RIGHT',
       effects: [
         {
           duration: 1000,
           dx: 1,
         },
-      ]
+      ],
+      sprite_idx: 1,
     },
     zigzag: {
-      name: 'Zig- Zag',
+      name: 'ZIG-ZAG',
       effects: [
         {
           duration: ZIGZAG,
@@ -138,16 +151,123 @@ export function main(canvas)
           duration: ZIGZAG,
           dx: -1,
         },
-      ]
-    }
+      ],
+      sprite_idx: 2,
+    },
+    react: {
+      name: 'AUTO-GUARD',
+      sprite_idx: 3,
+      effects: [
+        {
+          duration: 60000,
+          guard: true,
+        }
+      ],
+    },
+    shield: {
+      name: 'SHIELD BUBBLE',
+      sprite_idx: 4,
+      effects: [
+        {
+          duration: SHIELD_GROW_TIME,
+          shield_grow: SHIELD_SIZE,
+        },
+        {
+          duration: SHIELD_SHRINK_TIME,
+          shield_shrink: SHIELD_SIZE,
+        },
+      ],
+    },
+    repair: {
+      name: 'REPAIR',
+      sprite_idx: 5,
+      effects: [
+        {
+          duration: 250 * 5,
+          trigger_at: 250,
+          hp: 1,
+        }
+      ],
+    },
+    draw3: {
+      name: 'DRAW 3',
+      sprite_idx: 6,
+      effects: [
+        {
+          duration: 250 * 3,
+          trigger_at: 250,
+          draw: 1,
+        }
+      ],
+    },
+    spread: {
+      name: 'SPREAD',
+      sprite_idx: 7,
+      effects: [
+        {
+          duration: 3000,
+          weapon: 'spread',
+        }
+      ],
+    },
+    rapid: {
+      name: 'RAPID FIRE',
+      sprite_idx: 8,
+      effects: [
+        {
+          duration: 3000,
+          weapon: 'rapid',
+        }
+      ],
+    },
+    beam: {
+      name: 'BEAM',
+      sprite_idx: 9,
+      effects: [
+        {
+          duration: 3000,
+          weapon: 'beam',
+        }
+      ],
+    },
+    homing: {
+      name: 'HOMING',
+      sprite_idx: 10,
+      effects: [
+        {
+          duration: 3000,
+          weapon: 'homing',
+        }
+      ],
+    },
   };
-  let deck = [];
-  for (let ii = 0; ii < 4; ++ii) {
-    deck.push('move_left');
-    deck.push('move_right');
+  for (let id in cards) {
+    cards[id].id = id;
   }
-  for (let ii = 0; ii < 2; ++ii) {
-    deck.push('zigzag');
+
+  let deck = [];
+  if (!DEBUG || true) {
+    // starting deck
+    for (let ii = 0; ii < 4; ++ii) {
+      deck.push('move_left');
+      deck.push('move_right');
+    }
+    for (let ii = 0; ii < 2; ++ii) {
+      deck.push('zigzag');
+    }
+    deck.push('repair');
+    deck.push('shield');
+    deck.push('react');
+    deck.push('draw3');
+    deck.push('spread');
+    deck.push('rapid');
+    deck.push('beam');
+  } else {
+    // TESTING
+    deck.push('spread');
+    deck.push('rapid');
+    deck.push('beam');
+    // TODO: deck.push('homing');
   }
   let discard = [];
   let hand = [];
@@ -165,8 +285,8 @@ export function main(canvas)
   }
   shuffle();
   let hand_size = 5;
-  function draw() {
-    if (hand.length >= hand_size) {
+  function draw(allow_over) {
+    if (!allow_over && hand.length >= hand_size) {
       return false;
     }
     if (!deck.length) {
@@ -200,10 +320,12 @@ export function main(canvas)
     y : board_h - 0.5,
     color: math_device.v4Copy(color_white),
     bullet_speed: 0.005,
-    fire_countdown: 0,
-    fire_delay: 60 * 4,
-    max_health: 10,
+    fire_countdowns: [],
+    max_health: DEBUG ? 10 : 10,
   };
+  for (let ii = 0; ii < weapons.length; ++ii) {
+    player.fire_countdowns[ii] = 0;
+  }
   let player_dead = false;
   let player_scale = math_device.v2Build(board_tile_w/2, board_tile_h/2);
   let enemy_scale = math_device.v2Build(board_tile_w/2, board_tile_h/2);
@@ -211,13 +333,48 @@ export function main(canvas)
   let enemy_vs_bullet_dist_sq = 0.25*0.25;
   let player_vs_enemy_dist_sq = 0.25*0.25;
   let hit_cooldown = 0;
-  let hit_blink_time = 250;
+  let hit_was_blocked = false;
+  let player_hit_blink_time = 250;
+  let enemy_hit_blink_time = 150;
   let player_border_pad = 0.25;
+  const player_spread_angle = (90 - 15) / 180 * Math.PI;
+  const player_spread_factor_x = Math.cos(player_spread_angle);
+  const player_spread_factor_y = Math.sin(player_spread_angle);
+  function playerAddBullet(dt, dx, dy, xoffs, yoffs) {
+    bullets.push({
+      x: player.x + (xoffs || 0) + dt * dx,
+      y: player.y + (yoffs || 0) + dt * dy,
+      player: true,
+      dx,
+      dy,
+    });
+  }
+  function fireWeapon(weapon, dt) {
+    if (weapon === 'regular' || weapon === 'spread') {
+      playerAddBullet(dt, 0, -player.bullet_speed);
+      if (weapon === 'spread') {
+        playerAddBullet(dt, player.bullet_speed * player_spread_factor_x * -1,
+          -player.bullet_speed * player_spread_factor_y);
+        playerAddBullet(dt, -player.bullet_speed * player_spread_factor_x * -1,
+          -player.bullet_speed * player_spread_factor_y);
+      }
+    }
+    if (weapon === 'rapid') {
+      playerAddBullet(dt, 0, -player.bullet_speed, -0.22, 0.05);
+      playerAddBullet(dt, 0, -player.bullet_speed, 0.22, 0.05);
+    }
+    if (weapon === 'beam') {
+      playerAddBullet(dt, 0, -player.bullet_speed * BEAM_SPEED_SCALE, -0.05);
+      playerAddBullet(dt, 0, -player.bullet_speed * BEAM_SPEED_SCALE, 0.00);
+      playerAddBullet(dt, 0, -player.bullet_speed * BEAM_SPEED_SCALE, 0.05);
+    }
+  }
+
   function updatePlayer(dt) {
     let p = player;
     let dx = 0;
     let dy = 0;
-    if (!'keyboard control') {
+    if (DEBUG) {
       if (glov_input.isKeyDown(key_codes.LEFT) || glov_input.isKeyDown(key_codes.A) || glov_input.isPadButtonDown(0, pad_codes.LEFT)) {
         dx = -1;
       } else if (glov_input.isKeyDown(key_codes.RIGHT) || glov_input.isKeyDown(key_codes.D) || glov_input.isPadButtonDown(0, pad_codes.RIGHT)) {
@@ -229,28 +386,55 @@ export function main(canvas)
         dy = 1;
       }
     }
+    let shield = 0;
+    let weapons_active = { regular: true };
     for (let ii = cards_in_play.length - 1; ii >= 0 && !player_dead; --ii) {
       let card = cards_in_play[ii];
       let cdt = dt;
       while (card.effects.length && cdt > 0) {
         let e = card.effects[0];
         let portion = 1;
+        let duration_old = e.duration;
         if (cdt >= e.duration) {
           portion = e.duration / cdt;
           cdt -= e.duration;
+          e.duration = 0;
           card.effects.splice(0, 1);
         } else {
           e.duration -= cdt;
           cdt = 0;
         }
+        let duration_new = e.duration;
+        if (e.trigger_at) {
+          let oldi = Math.floor((duration_old - 1) / e.trigger_at);
+          let newi = Math.floor((duration_new - 1) / e.trigger_at);
+          portion = oldi - newi;
+        }
         // do effects
         if (e.dx) {
           dx += portion * e.dx;
         }
+        if (e.hp) {
+          score.damage = Math.max(0, score.damage - e.hp * portion);
+        }
+        if (e.draw) {
+          for (let ii = 0; ii < e.draw * portion; ++ii) {
+            draw(true);
+          }
+        }
+        if (e.shield_grow) {
+          shield = Math.max(shield, e.shield_grow * (1 - e.duration / SHIELD_GROW_TIME));
+        }
+        if (e.shield_shrink) {
+          shield = Math.max(shield, e.shield_shrink * e.duration / SHIELD_SHRINK_TIME);
+        }
+        if (e.weapon) {
+          weapons_active[e.weapon] = true;
+        }
       }
       if (!card.effects.length) {
-        cards_in_play[ii] = cards_in_play[cards_in_play.length - 1];
-        cards_in_play.pop();
+        discard.push(cards_in_play[ii].id);
+        cards_in_play.splice(ii, 1);
       }
     }
 
@@ -260,52 +444,69 @@ export function main(canvas)
     p.y = clamp(p.y, board_h / 2 + player_border_pad, board_h - player_border_pad);
 
     // Check for collision vs bullets
+    let player_hit = false;
+    let dist = Math.max(player_vs_bullet_dist_sq, shield * shield);
     for (let jj = bullets.length - 1; jj >= 0 && !player_dead; --jj) {
       let b = bullets[jj];
       if (b.player) {
         continue;
       }
-      if ((b.x - p.x) * (b.x - p.x) + (b.y - p.y) * (b.y - p.y) <= player_vs_bullet_dist_sq) {
+      if ((b.x - p.x) * (b.x - p.x) + (b.y - p.y) * (b.y - p.y) <= dist) {
         // kill bullet, take damage
         bullets[jj] = bullets[bullets.length - 1];
         bullets.pop();
-        if (!hit_cooldown) {
-          score.damage++;
-          hit_cooldown = hit_blink_time;
-        }
+        player_hit = true;
       }
     }
     // Check for collision vs enemies
+    dist = Math.max(player_vs_enemy_dist_sq, shield * shield);
     for (let jj = enemies.length - 1; jj >= 0 && !player_dead; --jj) {
       let b = enemies[jj];
-      if ((b.x - p.x) * (b.x - p.x) + (b.y - p.y) * (b.y - p.y) <= player_vs_enemy_dist_sq) {
+      if ((b.x - p.x) * (b.x - p.x) + (b.y - p.y) * (b.y - p.y) <= dist) {
         // kill enemy, take damage, score
         score.kills++;
         enemies[jj] = enemies[enemies.length - 1];
         enemies.pop();
-        if (!hit_cooldown) {
-          score.damage++;
-          hit_cooldown = hit_blink_time;
+        player_hit = true;
+      }
+    }
+    if (player_hit && !shield) {
+      if (!hit_cooldown) {
+        let blocked = false;
+        for (let ii = 0; ii < cards_in_play.length; ++ii) {
+          if (cards_in_play[ii].effects[0].guard) {
+            blocked = true;
+            discard.push(cards_in_play[ii].id);
+            cards_in_play.splice(ii, 1);
+            break;
+          }
         }
+        if (blocked) {
+          hit_was_blocked = true;
+        } else {
+          score.damage++;
+          hit_was_blocked = false;
+        }
+        hit_cooldown = player_hit_blink_time;
       }
     }
 
-    let firing = false && !player_dead; // && glov_input.isKeyDown(key_codes.SPACE);
-    if (dt >= p.fire_countdown) {
-      if (firing) {
-        p.fire_countdown = p.fire_delay - (dt - p.fire_countdown);
-        bullets.push({
-          x: p.x,
-          y: p.y,
-          player: true,
-          dx: 0,
-          dy: -p.bullet_speed,
-        });
-      } else {
-        p.fire_countdown = 0;
+    let firing = !player_dead && (spawns.length || enemies.length); // && !DEBUG || DEBUG && glov_input.isKeyDown(key_codes.SPACE);
+    for (let ii = 0; ii < weapons.length; ++ii) {
+      let weapon = weapons[ii];
+      let rdt = dt;
+      while (rdt >= p.fire_countdowns[ii]) {
+        if (firing && weapons_active[weapon]) {
+          rdt -= p.fire_countdowns[ii];
+          p.fire_countdowns[ii] = fire_delay[ii];
+          fireWeapon(weapon, rdt - dt);
+        } else {
+          rdt = 0;
+          p.fire_countdowns[ii] = 0;
+          break;
+        }
       }
-    } else {
-      p.fire_countdown -= dt;
+      p.fire_countdowns[ii] -= rdt;
     }
 
     if (dt >= hit_cooldown) {
@@ -313,11 +514,19 @@ export function main(canvas)
       math_device.v4Copy(color_white, player.color);
     } else {
       hit_cooldown -= dt;
-      math_device.v4Lerp(color_red, color_white, 1 - hit_cooldown / hit_blink_time, player.color);
+      math_device.v4Lerp(hit_was_blocked ? color_blue : color_red, color_white, 1 - hit_cooldown / player_hit_blink_time, player.color);
     }
 
-    draw_list.queue(sprites.player, board_x0 + p.x * board_tile_w, board_y0 + p.y * board_tile_h, Z.SPRITES, player.color,
+    let x = board_x0 + p.x * board_tile_w;
+    let y = board_y0 + p.y * board_tile_h;
+    draw_list.queue(sprites.player, x, y, Z.SPRITES, player.color,
       player_scale);
+
+    if (shield > 0.1) {
+      glov_ui.drawHollowCircle(x, y, Z.SPRITES - 1, shield * board_tile_w, 0.9, color_blue);
+      glov_ui.drawCircle(x, y, Z.SPRITES - 2, shield * board_tile_w, 0.9, [0.5, 0.5, 1, 1]);
+      glov_ui.drawCircle(x, y, Z.SPRITES + 5, shield * board_tile_w, 0.9, [0.5, 0.5, 1, 0.5]);
+    }
   }
   let bullet_scale = math_device.v2Build(board_tile_w/2 * bullet_size / sprite_size, board_tile_h/2 * bullet_size / sprite_size);
   function updateBullets(dt) {
@@ -335,6 +544,92 @@ export function main(canvas)
         bullet_scale);
     }
   }
+
+  function spawnDrones(spawns, t, mode) {
+    let count = (mode === 2) ? 20 : 10;
+    let delay = (mode === 2) ? 120 : 400;
+    for (let ii = 0; ii < count; ++ii) {
+      spawns.push({
+        t: t + ii * delay,
+        x:
+          (mode === 0) ? board_w * 3/4 :
+          (mode === 1) ? board_w * 1/4 :
+          (mode === 2) ? board_w * 0.5 - ii * 0.3 :
+          1,
+        type: 'drone',
+      });
+    }
+  }
+  function spawnSnipers(spawns, t) {
+    let count = 3;
+    let delay = 1500;
+    for (let ii = 0; ii < count; ++ii) {
+      spawns.push({
+        t: t + ii * delay,
+        x: 1.5,
+        type: 'sniper'
+      });
+      spawns.push({
+        t: t + ii * delay,
+        x: board_w - 1.5,
+        type: 'sniper'
+      });
+    }
+  }
+  function spawnBombers(spawns, t) {
+    let x = board_w / 4  + board_w / 2 * Math.random();
+    let count = 6;
+    let delay = 400;
+    for (let ii = 0; ii < count; ++ii) {
+      spawns.push({
+        t: t + ii * delay,
+        x,
+        offset: ii * delay,
+        type: 'bomber'
+      });
+    }
+  }
+  function spawnOne(spawns, t, type) {
+    spawns.push({
+      t,
+      x: 0.75 + Math.random() * (board_w - 1.5),
+      type,
+    });
+  }
+  function spawnPair(spawns, t, type) {
+    spawns.push({
+      t,
+      x: board_w / 4,
+      type,
+    });
+    spawns.push({
+      t,
+      x: board_w * 3 / 4,
+      type,
+    });
+  }
+  let spawns = [];
+  if (DEBUG && false) {
+    spawnDrones(spawns, 0, 0);
+    // spawnOne(spawns, 0, 'large1');
+    // spawnOne(spawns, 0, 'large1');
+    // spawnOne(spawns, 0, 'large1');
+  } else if ('level1') {
+    spawnDrones(spawns, 0, 0);
+    spawnDrones(spawns, 2000, 1);
+    spawnBombers(spawns, 5000);
+    spawnBombers(spawns, 9000); // 4s between bombers looks good
+    spawnDrones(spawns, 12000, 2);
+    spawnSnipers(spawns, 12000);
+    spawnDrones(spawns, 14000, 0);
+    spawnOne(spawns, 20000, 'large2');
+    spawnOne(spawns, 25000, 'large1');
+    spawnPair(spawns, 35000, 'large1');
+  }
+
+  spawns.sort(function (a, b) {
+    return b.t - a.t;
+  });
 
   function linearY() {
     this.y = this.y0 + this.age * this.dy;
@@ -418,7 +713,10 @@ export function main(canvas)
     }
   }
 
-  function spawnEnemy(x, y, name) {
+  function spawnEnemy(spawn) {
+    let x = spawn.x;
+    let y = spawn.y;
+    let name = spawn.type;
     let e = {
       x,
       y,
@@ -444,20 +742,22 @@ export function main(canvas)
         e.hp = 1;
         break;
       case 'bomber':
-        e.xscale = randInt(2) * 2 - 1;
+        e.xscale = (e.x < board_w / 2) ? 1 : -1;
         e.xperiod = 0.001;
         e.xfn = bomberX;
-        e.fire_delay = 1000;
+        e.fire_delay = Math.PI / e.xperiod;
+        e.fire_countdown = e.fire_delay * 1 / 4 - spawn.offset;
         e.hp = 2;
         break;
       case 'sniper':
-        e.xscale = randInt(2) * 2 - 1;
+        e.xscale = (e.x < board_w / 2) ? 1 : -1;
         e.xperiod = 0.001;
         e.xfn = bomberX;
         e.yfn = sniperY;
-        e.fire_delay = 2500;
+        e.fire_delay = Math.PI * 2 / e.xperiod; // at peak
+        e.fire_countdown = e.fire_delay * 3 / 4 + 250;
         e.shootfn = shootSniper;
-        e.hp = 1;
+        e.hp = 4;
         break;
       case 'large1':
         e.xscale = (randInt(2) * 2 - 1);
@@ -469,39 +769,48 @@ export function main(canvas)
         e.burst_count = 10;
         e.burst_state = 0;
         e.firedelayfn = fireDelayBurst;
-        e.hp = 10;
+        e.hp = 20;
         break;
       case 'large2':
         e.xscale = (randInt(2) * 2 - 1);
         e.xperiod = 0.0001;
         e.xfn = bomberX;
-        e.dy *= 0.25;
+        e.dy *= 0.20;
         e.burst_high = 1500;
         e.burst_low = 300;
         e.burst_count = 12;
         e.burst_state = 0;
         e.firedelayfn = fireDelayBurst3;
         e.shootfn = shootSpread;
-        e.hp = 10;
+        e.hp = 20;
         break;
     }
-    if (e.shoots) {
+    e.max_hp = e.hp;
+    if (e.shoots && !e.fire_countdown) {
       e.fire_countdown = e.firedelayfn();
     }
     enemies.push(e);
   }
 
-  let spawn_countdown = 100;
-  let spawn_delay = 2500;
+  let level_timestamp = 0;
+  // let spawn_countdown = 100;
+  // let spawn_delay = 2500;
   function updateEnemies(dt) {
-    if (dt >= spawn_countdown && !player_dead) {
-      spawn_countdown = spawn_delay - (dt - spawn_countdown);
-      let type = enemy_types[randInt(enemy_types.length)];
-      //type = 'large2';
-      spawnEnemy(0.75 + Math.random() * (board_w - 1.5), 0.5, type);
-    } else {
-      spawn_countdown -= dt;
+    // if (dt >= spawn_countdown && !player_dead) {
+    //   spawn_countdown = spawn_delay - (dt - spawn_countdown);
+    //   let type = enemy_types[randInt(enemy_types.length)];
+    //   //type = 'large2';
+    //   spawnEnemy({ x: 0.75 + Math.random() * (board_w - 1.5), y: 0.5, type });
+    // } else {
+    //   spawn_countdown -= dt;
+    // }
+    level_timestamp += dt;
+    while (spawns.length && level_timestamp >= spawns[spawns.length - 1].t) {
+      let s = spawns.pop();
+      s.y = s.y || -0.5; // (DEBUG ? 0.5 : -0.5);
+      spawnEnemy(s);
     }
+
     for (let ii = enemies.length - 1; ii >= 0; --ii) {
       let e = enemies[ii];
       // do movement pattern
@@ -509,54 +818,65 @@ export function main(canvas)
       e.xfn(dt);
       e.yfn(dt);
       // check for bullet collision
-      let killme = false;
       for (let jj = bullets.length - 1; jj >= 0 && !player_dead; --jj) {
         let b = bullets[jj];
         if (!b.player) {
           continue;
         }
         if ((b.x - e.x) * (b.x - e.x) + (b.y - e.y) * (b.y - e.y) <= enemy_vs_bullet_dist_sq) {
-          killme = true;
-          // kill bullet too
+          // kill bullet
           bullets[jj] = bullets[bullets.length - 1];
           bullets.pop();
+          e.hp = Math.max(0, e.hp - 1);
+          e.blink_at = e.age;
         }
       }
-      if (killme) {
+      if (!e.hp) {
         score.kills++;
       }
-      if (e.y > board_h + 0.5) {
-        killme = true;
-      }
-      if (killme) {
+      if (!e.hp || e.y > board_h + 0.5) {
         enemies[ii] = enemies[enemies.length - 1];
         enemies.pop();
         continue;
       }
       // do firing
-      if (e.shoots && e.y >= 0) {
-        if (dt >= e.fire_countdown) {
-          while (dt >= e.fire_countdown) {
-            e.fire_countdown = e.firedelayfn() - (dt - e.fire_countdown);
-            if (e.x > 0.01 && e.x < board_w - 0.01) {
-              let b = {
-                x: e.x,
-                y: e.y,
-                player: false,
-                dx: 0,
-                dy: 0,
-              };
-              e.shootfn(b);
-              bullets.push(b);
-            }
+      if (e.shoots) {
+        let rdt = dt;
+        while (rdt >= e.fire_countdown) {
+          rdt -= e.fire_countdown;
+          e.fire_countdown = e.firedelayfn();
+          if (e.x > 0.01 && e.x < board_w - 0.01 && e.y >= 0) {
+            let b = {
+              x: e.x,
+              y: e.y,
+              player: false,
+              dx: 0,
+              dy: 0,
+            };
+            e.shootfn(b);
+            bullets.push(b);
           }
-        } else {
-          e.fire_countdown -= dt;
         }
+        e.fire_countdown -= rdt;
       }
 
+      let x = board_x0 + e.x * board_tile_w;
+      let y = board_y0 + e.y * board_tile_h;
+      let color = color_white;
+      if (e.blink_at) {
+        let time_since_blink = e.age - e.blink_at;
+        if (time_since_blink < enemy_hit_blink_time) {
+          color = math_device.v4Lerp(color_white, color_red, 1 - time_since_blink / enemy_hit_blink_time);
+        }
+        // been damaged, show health bar
+        let health_height = 6;
+        let health_width = 32;
+        let health_y = y - 24;
+        glov_ui.drawRect(x - health_width / 2, health_y, x + health_width / 2, health_y + health_height, Z.UI, [0.5, 0, 0, 1]);
+        glov_ui.drawRect(x - health_width / 2, health_y, x - health_width / 2 + health_width * e.hp / e.max_hp, health_y + health_height, Z.UI + 1, [0, 0.5, 0, 1]);
+      }
       draw_list.queue(sprites.enemies[e.name],
-        board_x0 + e.x * board_tile_w, board_y0 + e.y * board_tile_h, Z.SPRITES, color_white,
+        x, y, Z.SPRITES, color,
         enemy_scale);
     }
   }
@@ -570,10 +890,15 @@ export function main(canvas)
   let card_h = 120;
   let card_w = (2.5/3.5) * card_h;
   function drawCard(card, x, y, z, color) {
-    let lines = card.name.split(' ');
-    for (let jj = 0; jj < lines.length; ++jj) {
-      glov_ui.print(glov_font.styleColored(null, color), x + 8, y + 24 + jj * 20, z, lines[jj]);
-    }
+
+    let pad = 0.05 * card_w;
+    let icon_w = card_w - pad * 2;
+    draw_list.queue(sprites.cards, x + pad, y + pad, z + 1, color_white,
+      [icon_w, icon_w], sprites.cards.uidata.rects[card.sprite_idx]);
+    let text_y = y + icon_w + pad;
+    font.drawSizedAligned(glov_font.styleColored(null, color), x + pad, text_y,
+      z, 12, glov_font.ALIGN.HVCENTERFIT, icon_w, y + card_h - text_y, card.name);
+
     // Panel last, it eats clicks!
     glov_ui.panel({
       x,
@@ -626,7 +951,7 @@ export function main(canvas)
       if (playme) {
         let card = hand[ii];
         hand.splice(ii, 1);
-        discard.push(card);
+        //discard.push(card); happens when leaving play
         playCard(card);
       }
     }
@@ -652,6 +977,11 @@ export function main(canvas)
     glov_ui.drawRect(ui_x0, y, ui_x0 + health_width * health / player.max_health, y + health_height, Z.UI + 1, [0, 0.5, 0, 1]);
     glov_ui.print(glov_font.styleColored(null, 0xFFFFFFff), ui_x0 + 8, y + 4, Z.UI + 2,
       `Health: ${health} / ${player.max_health}`);
+
+    if (!spawns.length && !enemies.length && !bullets.length) {
+      font.drawSizedAligned(glov_font.styleColored(null, 0x80FF80ff), ui_x0, 0,
+        Z.UI + 1, 96, glov_font.ALIGN.HVCENTERFIT, game_width - ui_x0, y - 200, 'YOU WIN!');
+    }
   }
 
   function test(dt) {
@@ -663,7 +993,7 @@ export function main(canvas)
 
     drawBottomUI(dt);
 
-    draw_list.queue(sprites.white, board_x0, board_y0, Z.BACKGROUND + 1, [0, 0.72, 1, 1], [board_tile_w * board_w, board_tile_h * board_h]);
+    draw_list.queue(sprites.white, board_x0, board_y0, Z.BACKGROUND + 1, [0, 0, 0, 1], [board_tile_w * board_w, board_tile_h * board_h]);
     draw_list.queue(sprites.game_bg, 0, 0, Z.BACKGROUND, [0.2, 0.2, 0.2, 1]);
   }
 

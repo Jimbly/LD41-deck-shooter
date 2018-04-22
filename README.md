@@ -5,10 +5,7 @@ LD41 Entry by Jimbly
 
 Start with: `npm start` (after running `npm i` once)
 
-TODO
-* Is DB-BHS fun?  Prototype basics
-
-Deckbuilding Bullet-hell Plan
+Deckbuilding Bullet-hell Plan / TODO list
 * Build a BHS
   X avatar (movable with controls for debug)
   X simple enemy movement and firing patterns
@@ -42,9 +39,9 @@ Deckbuilding Bullet-hell Plan
   X bomber - Medium, full left/right strafers that slowly show straight down - spawn pattern so bullets make a wave/wall
   X large1 - Large, very slow horiz movement, lots of HP, does bursts of straight down firing
   X large2 - Large, no horiz movement, lots of HP, does bursts of spread firing
-  * Spawn patterns
+  X Spawn patterns
+  X Health bars
   * Boss
-  * health bars? damage progression sprites?
 * Art
   * Avatar
   * Background
@@ -53,6 +50,7 @@ Deckbuilding Bullet-hell Plan
   * Explosions
   * Sound FX
   * Music
+  * Damage progression sprites instead of health bars?
 
 
 Rhythm Tower Defense Scope

@@ -41,6 +41,7 @@ export const ALIGN = {
   HFIT: 1 << 4,
   HWRAP: 1 << 5, // only for glovMarkup*, not drawSizedAligned below, use drawSizedWrapped below instead
 
+  HCENTERFIT: 1 | (1 << 4),
   HVCENTER: 1 | (1 << 2), // to avoid doing bitwise ops elsewhere
   HVCENTERFIT: 1 | (1 << 2) | (1 << 4), // to avoid doing bitwise ops elsewhere
 };
