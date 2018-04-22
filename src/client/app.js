@@ -68,6 +68,7 @@ export function main(canvas)
     rollover: 'rollover',
   });
 
+  const color_black = math_device.v4Build(0, 0, 0, 1);
   const color_white = math_device.v4Build(1, 1, 1, 1);
   const color_red = math_device.v4Build(1, 0, 0, 1);
   const color_green = math_device.v4Build(0, 1, 0, 1);
@@ -123,6 +124,7 @@ export function main(canvas)
     }
 
     sprites.white = loadSprite('white', 1, 1, origin_0_0);
+    sprites.vignette = loadSprite('vignette.png', 64, 64, origin_0_0);
     sprites.player = loadSprite('player.png', sprite_size, sprite_size);
     sprites.enemies = {};
     for (let ii = 0; ii < enemy_types.length; ++ii) {
@@ -308,7 +310,7 @@ export function main(canvas)
   }
 
   let deck = [];
-  if (!DEBUG) {
+  if (!DEBUG || true) {
     // starting deck
     for (let ii = 0; ii < 4; ++ii) {
       deck.push('move_left');
@@ -402,7 +404,7 @@ export function main(canvas)
     color: math_device.v4Copy(color_white),
     bullet_speed: 0.005,
     fire_countdowns: [],
-    max_health: DEBUG ? 1000 : 10,
+    max_health: DEBUG ? 10 : 10,
   };
   for (let ii = 0; ii < weapons.length; ++ii) {
     player.fire_countdowns[ii] = 0;
@@ -920,8 +922,13 @@ export function main(canvas)
   let level_timestamp;
   let level_data = [
     ['level1b', 170, 40000],
-    ['level2d', 200, 40000],
-    ['level3', 300, 55000],
+    ['level2d', 200, 60000],
+    ['level3', 300, 65000],
+    ['level4', 400, 70000],
+    ['level5', 500, 70000],
+    ['level6', 600, 70000],
+    ['level7', 800, 70000],
+    ['level8', 1000, 70000],
   ];
   let level_num = 0;
   let max_levels = level_data.length;
@@ -1302,7 +1309,8 @@ export function main(canvas)
     } else {
       // revert money, go back to buying things
       cardsToDeck();
-      money = score.money = level_won_saved.money;
+      //money = score.money = level_won_saved.money;
+      money = score.money; // NOT restoring this
       deck = util.clone(level_won_saved.deck);
       level_won_is_victory = false;
       --level_num;
@@ -1517,6 +1525,9 @@ export function main(canvas)
     draw_list.queue(sprites.white, glov_camera.x0(), board_y0 + board_tile_h * board_h, Z.BORDER, [0.2, 0.2, 0.2, 1], [1e9, 1e9]);
     // top
     draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.BORDER, [0.2, 0.2, 0.2, 1], [1e9, board_y0 - glov_camera.y0()]);
+    // vignette
+    let color = math_device.v4Lerp(color_black, color_red, clamp(hit_cooldown / player_hit_blink_time, 0, 1));
+    draw_list.queue(sprites.vignette, board_x0, board_y0, Z.BORDER, color, [board_w * board_tile_w, board_h * board_tile_h], null, 0, 'alpha');
 
     let level_won = !spawns.length && !enemies.length && !bullets.length && !player_dead || DEBUG && false;
     if (level_won) {
