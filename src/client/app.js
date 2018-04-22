@@ -14,8 +14,13 @@ Z.SPRITES = 10;
 
 const DEBUG = window.location.toString().indexOf('localhost') !== -1;
 
+let levelWonInit;
+
 // Balance params
 const DRAW_RATE = 2000;
+const COST_BY_TIER = [100, 300, 800];
+const TRASH_COST = 250;
+const MONEY_PER_HP = 5;
 
 // Virtual viewport for our game logic
 const game_width = 1280;
@@ -66,7 +71,8 @@ export function main(canvas)
 
   let game_state;
 
-  let enemy_types = ['drone', 'sniper', 'bomber', 'large1', 'large2'];
+  let enemy_types = ['drone', 'bomber', 'sniper', 'large1', 'large2'];
+  let enemy_hps = [1, 2, 4, 20, 20];
   let sprites = {};
   const sprite_size = 32;
   const bullet_size = 8;
@@ -248,8 +254,19 @@ export function main(canvas)
     cards[id].id = id;
   }
 
+  let cards_by_tier = [
+    ['move_left', 'move_right', 'zigzag'],
+    ['repair', 'react', 'draw3', 'rapid'],
+    ['shield', 'beam', 'spread'],
+  ];
+  for (let ii = 0; ii < cards_by_tier.length; ++ii) {
+    for (let jj = 0; jj < cards_by_tier[ii].length; ++jj) {
+      cards[cards_by_tier[ii][jj]].tier = ii;
+    }
+  }
+
   let deck = [];
-  if (!DEBUG) {
+  if (!DEBUG || true) {
     // starting deck
     for (let ii = 0; ii < 4; ++ii) {
       deck.push('move_left');
@@ -259,18 +276,18 @@ export function main(canvas)
       deck.push('zigzag');
     }
     deck.push('repair');
+  } else {
+    // TESTING
+    deck.push('zigzag');
+    deck.push('move_left');
+    deck.push('move_right');
+    deck.push('repair');
     deck.push('shield');
     deck.push('react');
     deck.push('draw3');
     deck.push('spread');
     deck.push('rapid');
     deck.push('beam');
-  } else {
-    // TESTING
-    deck.push('zigzag');
-    deck.push('zigzag');
-    deck.push('move_left');
-    deck.push('move_right');
     // TODO: deck.push('homing');
   }
   let discard = [];
@@ -287,7 +304,6 @@ export function main(canvas)
       deck[idx] = t;
     }
   }
-  shuffle();
   let hand_size = 5;
   function draw(allow_over) {
     if (!allow_over && hand.length >= hand_size) {
@@ -304,26 +320,22 @@ export function main(canvas)
     hand.push(deck.pop());
     return true;
   }
-  while (draw()) {}
 
   let score = {
     kills: 0,
     damage: 0,
+    money: 0,
   };
   let board_w = 5;
   let board_h = 10;
-  let bullets = [];
-  let enemies = [];
+  let bullets;
+  let enemies;
   let board_tile_h = game_height / board_h;
   let board_tile_w = board_tile_h;
   let board_x0 = board_tile_w / 2;
   let board_y0 = game_height - board_tile_h * board_h;
   let ui_x0 = board_x0 * 2 + board_w * board_tile_w;
   let player = {
-    x : board_w / 2,
-    y : board_h - 0.5,
-    dx: 0,
-    dy: 0,
     color: math_device.v4Copy(color_white),
     bullet_speed: 0.005,
     fire_countdowns: [],
@@ -332,7 +344,8 @@ export function main(canvas)
   for (let ii = 0; ii < weapons.length; ++ii) {
     player.fire_countdowns[ii] = 0;
   }
-  let player_dead = false;
+  let spawns;
+  let player_dead;
   let player_scale = math_device.v2Build(board_tile_w/2, board_tile_h/2);
   let enemy_scale = math_device.v2Build(board_tile_w/2, board_tile_h/2);
   let player_vs_bullet_dist_sq = 0.25*0.25;
@@ -487,6 +500,7 @@ export function main(canvas)
       if ((b.x - p.x) * (b.x - p.x) + (b.y - p.y) * (b.y - p.y) <= dist) {
         // kill enemy, take damage, score
         score.kills++;
+        score.money += MONEY_PER_HP * b.max_hp;
         enemies[jj] = enemies[enemies.length - 1];
         enemies.pop();
         player_hit = true;
@@ -630,28 +644,60 @@ export function main(canvas)
       type,
     });
   }
-  let spawns = [];
-  if (DEBUG && false) {
-    spawnDrones(spawns, 0, 0);
-    // spawnOne(spawns, 0, 'large1');
-    // spawnOne(spawns, 0, 'large1');
-    // spawnOne(spawns, 0, 'large1');
-  } else if ('level1') {
-    spawnDrones(spawns, 0, 0);
-    spawnDrones(spawns, 2000, 1);
-    spawnBombers(spawns, 5000);
-    spawnBombers(spawns, 9000); // 4s between bombers looks good
-    spawnDrones(spawns, 12000, 2);
-    spawnSnipers(spawns, 12000);
-    spawnDrones(spawns, 14000, 0);
-    spawnOne(spawns, 20000, 'large2');
-    spawnOne(spawns, 25000, 'large1');
-    spawnPair(spawns, 35000, 'large1');
+
+  function cardsToDeck() {
+    deck = deck.concat(discard, hand, cards_in_play.map(function (c) {
+      return c.id;
+    }));
+    discard = [];
+    hand = [];
+    cards_in_play = [];
   }
 
-  spawns.sort(function (a, b) {
-    return b.t - a.t;
-  });
+  let level_timestamp;
+  function initLevel(level_num) {
+    cardsToDeck();
+    shuffle();
+    while (draw()) {}
+    player.x = board_w / 2;
+    player.y = board_h - 0.5;
+    player.dx = player.dy = 0;
+    enemies = [];
+    bullets = [];
+    spawns = [];
+    level_timestamp = 0;
+    if (DEBUG && false) {
+      spawnDrones(spawns, 0, 0);
+      // spawnOne(spawns, 0, 'large1');
+      // spawnOne(spawns, 0, 'large1');
+      // spawnOne(spawns, 0, 'large1');
+    } else if (level_num === 0) {
+      // 178 HP
+      spawnDrones(spawns, 0, 0);
+      spawnDrones(spawns, 2000, 1);
+      spawnBombers(spawns, 5000);
+      spawnBombers(spawns, 9000); // 4s between bombers looks good
+      spawnDrones(spawns, 12000, 2);
+      spawnSnipers(spawns, 12000);
+      spawnDrones(spawns, 14000, 0);
+      spawnOne(spawns, 20000, 'large2');
+      spawnOne(spawns, 25000, 'large1');
+      spawnPair(spawns, 35000, 'large1');
+    }
+
+    spawns.sort(function (a, b) {
+      return b.t - a.t;
+    });
+
+    let total = 0;
+    for (let ii = 0; ii < spawns.length; ++ii) {
+      total += enemy_hps[enemy_types.indexOf(spawns[ii].type)];
+    }
+    console.log(`Level ${level_num} has ${total} HP in total`);
+
+    player_dead = false;
+    score.kills = score.damage = 0;
+  }
 
   function linearY() {
     this.y = this.y0 + this.age * this.dy;
@@ -747,7 +793,7 @@ export function main(canvas)
       firedelayfn: fireDelayLinear,
       shootfn: shootDown,
       bullet_speed: 0.002,
-      hp: 1,
+      hp: enemy_hps[enemy_types.indexOf(name)],
     };
     switch (name) {
       case 'drone':
@@ -755,7 +801,6 @@ export function main(canvas)
         e.xfn = droneX;
         e.desired_dx = ((x > board_w / 2) ? -1 : 1) * 0.0005;
         e.dx = e.desired_dx;
-        e.hp = 1;
         break;
       case 'bomber':
         e.xscale = (e.x < board_w / 2) ? 1 : -1;
@@ -763,7 +808,6 @@ export function main(canvas)
         e.xfn = bomberX;
         e.fire_delay = Math.PI / e.xperiod;
         e.fire_countdown = e.fire_delay * 1 / 4 - spawn.offset;
-        e.hp = 2;
         break;
       case 'sniper':
         e.xscale = (e.x < board_w / 2) ? 1 : -1;
@@ -773,7 +817,6 @@ export function main(canvas)
         e.fire_delay = Math.PI * 2 / e.xperiod; // at peak
         e.fire_countdown = e.fire_delay * 3 / 4 + 250;
         e.shootfn = shootSniper;
-        e.hp = 4;
         break;
       case 'large1':
         e.xscale = (randInt(2) * 2 - 1);
@@ -785,7 +828,6 @@ export function main(canvas)
         e.burst_count = 10;
         e.burst_state = 0;
         e.firedelayfn = fireDelayBurst;
-        e.hp = 20;
         break;
       case 'large2':
         e.xscale = (randInt(2) * 2 - 1);
@@ -798,7 +840,6 @@ export function main(canvas)
         e.burst_state = 0;
         e.firedelayfn = fireDelayBurst3;
         e.shootfn = shootSpread;
-        e.hp = 20;
         break;
     }
     e.max_hp = e.hp;
@@ -808,7 +849,6 @@ export function main(canvas)
     enemies.push(e);
   }
 
-  let level_timestamp = 0;
   // let spawn_countdown = 100;
   // let spawn_delay = 2500;
   function updateEnemies(dt) {
@@ -849,6 +889,7 @@ export function main(canvas)
       }
       if (!e.hp) {
         score.kills++;
+        score.money += MONEY_PER_HP * e.max_hp;
       }
       if (!e.hp || e.y > board_h + 0.5) {
         enemies[ii] = enemies[enemies.length - 1];
@@ -909,8 +950,8 @@ export function main(canvas)
   let draw_countdown = 0;
   let card_h = 120;
   let card_w = (2.5/3.5) * card_h;
-  function drawCard(card, x, y, z, color, scale) {
-
+  function drawCard(card, x, y, z, scale) {
+    let color = 0x000000ff;
     let pad = 0.05 * card_w * scale;
     let icon_w = card_w * scale - pad * 2;
     draw_list.queue(sprites.cards, x + pad, y + pad, z + 1, color_white,
@@ -963,16 +1004,14 @@ export function main(canvas)
         h: card_h,
       };
       let playme = glov_input.clickHit(bounds);
-      let color = 0x000000ff;
       let scale = 1;
       if (playme || glov_input.isMouseOver(bounds)) {
-        //color = 0x009000ff;
         scale = 1.2;
         x -= (card_w * scale - card_w) / 2;
         y -= (card_h * scale - card_h) / 2;
         z += 20;
       }
-      drawCard(cards[hand[ii]], x, y, z, color, scale); // eats clicks due to panel()
+      drawCard(cards[hand[ii]], x, y, z, scale); // eats clicks due to panel()
 
       if (playme) {
         let card = hand[ii];
@@ -1010,7 +1049,7 @@ export function main(canvas)
       for (let jj = 0; jj < card.effects.length; ++jj) {
         left += card.effects[jj].duration;
       }
-      drawCard(card, x, in_play_y0, z, 0x000000ff, 1);
+      drawCard(card, x, in_play_y0, z, 1);
       glov_ui.drawRect(x, in_play_y0 + left / card.total * card_h, x + card_w, in_play_y0 + card_h, z + 2, [0, 0, 0, 0.5]);
     }
   }
@@ -1029,14 +1068,9 @@ export function main(canvas)
     glov_ui.drawRect(ui_x0, y, ui_x0 + health_width * health / player.max_health, y + health_height, Z.UI + 1, [0, 0.5, 0, 1]);
     glov_ui.print(glov_font.styleColored(null, 0xFFFFFFff), ui_x0 + 8, y + 4, Z.UI + 2,
       `Health: ${health} / ${player.max_health}`);
-
-    if (!spawns.length && !enemies.length && !bullets.length && score.damage < player.max_health) {
-      font.drawSizedAligned(glov_font.styleColored(null, 0x80FF80ff), ui_x0, 0,
-        Z.UI + 1, 96, glov_font.ALIGN.HVCENTERFIT, game_width - ui_x0, y - 200, 'YOU WIN!');
-    }
   }
 
-  function test(dt) {
+  function gameplay(dt) {
     player_dead = score.damage >= player.max_health;
     updatePlayer(dt);
     updateEnemies(dt);
@@ -1056,20 +1090,183 @@ export function main(canvas)
     draw_list.queue(sprites.white, glov_camera.x0(), board_y0 + board_tile_h * board_h, Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [1e9, 1e9]);
     // top
     draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [1e9, board_y0 - glov_camera.y0()]);
+
+    let level_won = !spawns.length && !enemies.length && !bullets.length && !player_dead || DEBUG;
+    if (level_won) {
+      game_state = levelWonInit;
+    }
   }
 
-  function testInit(dt) {
+  let level_num = 0;
+  function gameplayInit(dt) {
+    initLevel(level_num);
     $('.screen').hide();
     $('#title').show();
-    game_state = test;
-    test(dt);
+    game_state = gameplay;
+    gameplay(dt);
   }
+
+  let money;
+  let cards_for_sale;
+  let level_won_saved;
+  function levelWon(dt) {
+    let y = 20;
+    glov_ui.drawRect(20, y, game_width - 20, y + 180, Z.UI - 1, [0.2, 0.2, 0.2, 1]);
+    font.drawSizedAligned(glov_font.styleColored(null, 0x80FF80ff), 0, 0,
+      Z.UI, 96, glov_font.ALIGN.HVCENTERFIT, game_width, 200, 'VICTORY!');
+    y += 130;
+    font.drawSizedAligned(glov_font.styleColored(null, 0xFFFF00ff), 0, y,
+      Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Cash: \$${money}`);
+    y += 50;
+    y += 20;
+    glov_ui.drawRect(20, y, game_width - 20, game_height - 20, Z.UI - 1, [0.2, 0.2, 0.2, 1]);
+    y += 20;
+
+    let x = 40;
+    const section_style = glov_font.styleColored(null, 0xFFFFFFff);
+    font.drawSized(section_style, x, y, Z.UI, 36, 'BUY NEW CARDS:');
+    y += 36 + 8;
+    let scale = 1.5;
+    for (let ii = 0; ii < cards_for_sale.length; ++ii) {
+      let cost = COST_BY_TIER[cards[cards_for_sale[ii]].tier];
+      let afford = cost <= money;
+      let xx = x + (card_w * scale + 8) * ii;
+      let yy = y;
+      let z = Z.UI + ii * 10;
+      let bounds = {
+        x: xx,
+        y: yy,
+        z,
+        w: card_w * scale,
+        h: card_h * scale,
+      };
+      let buyme = afford && glov_input.clickHit(bounds);
+      let extra_scale = 1.0;
+      let price_offs = 6;
+      if (buyme || afford && glov_input.isMouseOver(bounds)) {
+        extra_scale = 1.2;
+        z += 20;
+        price_offs += 8;
+      }
+      if (!afford) {
+        glov_ui.drawRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, z + 5, [0, 0, 0, 0.5]);
+      }
+      font.drawSizedAligned(glov_font.styleColored(null, afford ? 0xFFFF00ff : 0x800000ff), xx, yy + card_h * scale + price_offs,
+        Z.UI, 24, glov_font.ALIGN.HCENTERFIT, card_w * scale, 0, `\$${cost}`);
+      xx -= (card_w * scale * extra_scale - card_w * scale ) / 2;
+      yy -= (card_h * scale  * extra_scale - card_h * scale ) / 2;
+      drawCard(cards[cards_for_sale[ii]], xx, yy, z, scale * extra_scale); // eats clicks due to panel()
+      if (buyme) {
+        money -= cost;
+        deck.push(cards_for_sale[ii]);
+        cards_for_sale.splice(ii, 1);
+      }
+    }
+    y += card_h * scale + 40;
+    font.drawSized(section_style, x, y, Z.UI, 36, `TRASH CARDS (remove from deck, minimum 5):`);
+    y += 36 + 8;
+    let afford = TRASH_COST <= money && (deck.length > 5);
+    scale = 1.0;
+    let xmod = 0;
+    for (let ii = 0; ii < deck.length; ++ii) {
+      let xx = x + (card_w * scale + 8) * ii - xmod;
+      if (xx + card_w * scale > game_width - 20) {
+        y += card_h * scale + 40;
+        xmod += xx - x;
+        xx = x;
+      }
+      let yy = y;
+      let z = Z.UI + ii * 10;
+      let bounds = {
+        x: xx,
+        y: yy,
+        z,
+        w: card_w * scale,
+        h: card_h * scale,
+      };
+      let trashme = afford && glov_input.clickHit(bounds);
+      let extra_scale = 1.0;
+      let price_offs = 6;
+      if (trashme || afford && glov_input.isMouseOver(bounds)) {
+        extra_scale = 1.2;
+        z += 20;
+        price_offs += 8;
+      }
+      if (!afford) {
+        glov_ui.drawRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, z + 5, [0, 0, 0, 0.5]);
+      }
+      font.drawSizedAligned(glov_font.styleColored(null, afford ? 0xFFFF00ff : 0x800000ff), xx, yy + card_h * scale + price_offs,
+        Z.UI, 24, glov_font.ALIGN.HCENTERFIT, card_w * scale, 0, `\$${TRASH_COST}`);
+      xx -= (card_w * scale * extra_scale - card_w * scale ) / 2;
+      yy -= (card_h * scale  * extra_scale - card_h * scale ) / 2;
+      drawCard(cards[deck[ii]], xx, yy, z, scale * extra_scale); // eats clicks due to panel()
+      if (trashme) {
+        money -= TRASH_COST;
+        deck.splice(ii, 1);
+      }
+    }
+
+    if (money !== level_won_saved.money &&  glov_ui.buttonText({
+      x: game_width / 2 - 400 - 20,
+      y: game_height - 64 - 80,
+      w: 400,
+      h: 64,
+      font_height: 48,
+      text: 'UNDO'
+    })) {
+      money = level_won_saved.money;
+      cards_for_sale = util.clone(level_won_saved.cards);
+      deck = util.clone(level_won_saved.deck);
+    }
+
+    if (glov_ui.buttonText({
+      x: game_width / 2 + 20,
+      y: game_height - 64 - 80,
+      w: 400,
+      h: 64,
+      font_height: 48,
+      text: 'Next Level'
+    })) {
+      level_num++;
+      game_state = gameplayInit;
+      score.money = money;
+    }
+  }
+
+  levelWonInit = function (dt) {
+    cardsToDeck();
+    deck.sort(function (a, b) {
+      let r = cards[a].tier - cards[b].tier;
+      if (r) {
+        return r;
+      }
+      return (a < b) ? -1 : (a > b) ? 1 : 0;
+    });
+    game_state = levelWon;
+    money = score.money;
+    if (DEBUG) {
+      money += 875;
+    }
+    cards_for_sale = [];
+    for (let ii = 0; ii < cards_by_tier.length; ++ii) {
+      for (let jj = 0; jj < 2; ++jj) {
+        let idx = randInt(cards_by_tier[ii].length);
+        cards_for_sale.push(cards_by_tier[ii][idx]);
+      }
+    }
+    level_won_saved = {
+      deck: util.clone(deck),
+      cards: util.clone(cards_for_sale),
+      money: money,
+    };
+    levelWon(dt);
+  };
 
   function loading() {
     let load_count = glov_sprite.loading() + sound_manager.loading();
     $('#loading').text(`Loading (${load_count})...`);
     if (!load_count) {
-      game_state = testInit;
+      game_state = gameplayInit;
     }
   }
 
