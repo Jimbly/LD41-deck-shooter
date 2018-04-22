@@ -14,6 +14,9 @@ Z.SPRITES = 10;
 
 const DEBUG = window.location.toString().indexOf('localhost') !== -1;
 
+// Balance params
+const DRAW_RATE = 2000;
+
 // Virtual viewport for our game logic
 const game_width = 1280;
 const game_height = 1024;
@@ -35,7 +38,7 @@ export function main(canvas)
   });
 
   const sound_manager = glov_engine.sound_manager;
-  // const glov_camera = glov_engine.glov_camera;
+  const glov_camera = glov_engine.glov_camera;
   const glov_input = glov_engine.glov_input;
   const glov_sprite = glov_engine.glov_sprite;
   const glov_ui = glov_engine.glov_ui;
@@ -145,10 +148,10 @@ export function main(canvas)
         },
         {
           duration: ZIGZAG * 2,
-          dx: 1,
+          dx: 1.2,
         },
         {
-          duration: ZIGZAG,
+          duration: ZIGZAG * 1.5,
           dx: -1,
         },
       ],
@@ -246,7 +249,7 @@ export function main(canvas)
   }
 
   let deck = [];
-  if (!DEBUG || true) {
+  if (!DEBUG) {
     // starting deck
     for (let ii = 0; ii < 4; ++ii) {
       deck.push('move_left');
@@ -264,9 +267,10 @@ export function main(canvas)
     deck.push('beam');
   } else {
     // TESTING
-    deck.push('spread');
-    deck.push('rapid');
-    deck.push('beam');
+    deck.push('zigzag');
+    deck.push('zigzag');
+    deck.push('move_left');
+    deck.push('move_right');
     // TODO: deck.push('homing');
   }
   let discard = [];
@@ -318,6 +322,8 @@ export function main(canvas)
   let player = {
     x : board_w / 2,
     y : board_h - 0.5,
+    dx: 0,
+    dy: 0,
     color: math_device.v4Copy(color_white),
     bullet_speed: 0.005,
     fire_countdowns: [],
@@ -368,6 +374,17 @@ export function main(canvas)
       playerAddBullet(dt, 0, -player.bullet_speed * BEAM_SPEED_SCALE, 0.00);
       playerAddBullet(dt, 0, -player.bullet_speed * BEAM_SPEED_SCALE, 0.05);
     }
+  }
+
+  function accelerate(cur_dx, desired_dx, dt, accel) {
+    if (desired_dx !== cur_dx) {
+      let delta = desired_dx - cur_dx;
+      let sign_delta = (delta < 0) ? -1 : 1;
+      delta *= sign_delta;
+      delta = Math.min(delta, dt * accel);
+      cur_dx += delta * sign_delta;
+    }
+    return cur_dx;
   }
 
   function updatePlayer(dt) {
@@ -438,9 +455,14 @@ export function main(canvas)
       }
     }
 
-    p.x += dx * dt * player_speed;
+    // accelerated player.dx to dx
+    const player_accel = 0.005;
+    player.dx = accelerate(player.dx, dx, dt, player_accel);
+    player.dy = accelerate(player.dy, dy, dt, player_accel);
+
+    p.x += player.dx * dt * player_speed;
     p.x = clamp(p.x, player_border_pad, board_w - player_border_pad);
-    p.y += dy * dt * player_speed;
+    p.y += player.dy * dt * player_speed;
     p.y = clamp(p.y, board_h / 2 + player_border_pad, board_h - player_border_pad);
 
     // Check for collision vs bullets
@@ -648,13 +670,7 @@ export function main(canvas)
     {
       this.desired_dx *= -1;
     }
-    if (this.dx !== this.desired_dx) {
-      let delta = this.desired_dx - this.dx;
-      let sign_delta = (delta < 0) ? -1 : 1;
-      delta *= sign_delta;
-      delta = Math.min(delta, dt * drone_accel);
-      this.dx += delta * sign_delta;
-    }
+    this.dx = accelerate(this.dx, this.desired_dx, dt, drone_accel);
     this.x += this.dx * dt;
   }
 
@@ -882,30 +898,34 @@ export function main(canvas)
   }
 
   function playCard(card_name) {
-    cards_in_play.push(util.clone(cards[card_name]));
+    let card = util.clone(cards[card_name]);
+    card.total = 0;
+    for (let ii = 0; ii < card.effects.length; ++ii) {
+      card.total += card.effects[ii].duration;
+    }
+    cards_in_play.push(card);
   }
 
   let draw_countdown = 0;
-  const DRAW_RATE = 1000;
   let card_h = 120;
   let card_w = (2.5/3.5) * card_h;
-  function drawCard(card, x, y, z, color) {
+  function drawCard(card, x, y, z, color, scale) {
 
-    let pad = 0.05 * card_w;
-    let icon_w = card_w - pad * 2;
+    let pad = 0.05 * card_w * scale;
+    let icon_w = card_w * scale - pad * 2;
     draw_list.queue(sprites.cards, x + pad, y + pad, z + 1, color_white,
       [icon_w, icon_w], sprites.cards.uidata.rects[card.sprite_idx]);
     let text_y = y + icon_w + pad;
     font.drawSizedAligned(glov_font.styleColored(null, color), x + pad, text_y,
-      z, 12, glov_font.ALIGN.HVCENTERFIT, icon_w, y + card_h - text_y, card.name);
+      z, 12 * scale, glov_font.ALIGN.HVCENTERFIT, icon_w, y + card_h * scale - text_y, card.name);
 
     // Panel last, it eats clicks!
     glov_ui.panel({
       x,
       y,
       z,
-      w: card_w,
-      h: card_h,
+      w: card_w * scale,
+      h: card_h * scale,
     });
   }
   function drawHand(dt) {
@@ -918,7 +938,7 @@ export function main(canvas)
       return;
     }
 
-    if (hand.length >= hand_size) {
+    if (hand.length >= hand_size || !discard.length && !deck.length) {
       draw_countdown = DRAW_RATE;
     } else if (dt >= draw_countdown) {
       draw_countdown = DRAW_RATE - (dt - draw_countdown);
@@ -933,20 +953,26 @@ export function main(canvas)
 
     for (let ii = hand.length - 1; ii >= 0; --ii) {
       let x = hand_x0 + card_w * ii;
+      let y = hand_y0;
       let z = Z.UI + ii * 10;
       let bounds = {
         x,
-        y: hand_y0,
+        y,
         z,
         w: card_w,
         h: card_h,
       };
       let playme = glov_input.clickHit(bounds);
       let color = 0x000000ff;
+      let scale = 1;
       if (playme || glov_input.isMouseOver(bounds)) {
-        color = 0x009000ff;
+        //color = 0x009000ff;
+        scale = 1.2;
+        x -= (card_w * scale - card_w) / 2;
+        y -= (card_h * scale - card_h) / 2;
+        z += 20;
       }
-      drawCard(cards[hand[ii]], x, hand_y0, z, color); // eats clicks due to panel()
+      drawCard(cards[hand[ii]], x, y, z, color, scale); // eats clicks due to panel()
 
       if (playme) {
         let card = hand[ii];
@@ -956,10 +982,36 @@ export function main(canvas)
       }
     }
 
+    {
+      let style = glov_font.styleColored(null, 0xDDDDDDff);
+      let x = ui_x0 + card_w * hand.length;
+      let y = hand_y0;
+      let message = 'Draw...';
+      let text_x = x + 5;
+      if (hand.length >= hand_size) {
+        message = 'Hand full';
+        text_x += 15;
+      } else if (!discard.length && !deck.length) {
+        message = 'No more cards';
+        text_x += 15;
+      }
+      font.drawSizedAligned(style, text_x, y, Z.UI + 1, 24, glov_font.ALIGN.VCENTER, card_w, card_h,
+        message);
+      if (hand.length < hand_size && (discard.length || deck.length)) {
+        glov_ui.drawRect(x, y + draw_countdown / DRAW_RATE * card_h, x + card_w, y + card_h, Z.UI, [0.5, 0.5, 0.5, 1]);
+      }
+    }
+
     for (let ii = cards_in_play.length - 1; ii >= 0; --ii) {
       let x = hand_x0 + card_w * ii;
       let z = Z.UI + ii * 10;
-      drawCard(cards_in_play[ii], x, in_play_y0, z, 0x000000ff);
+      let card = cards_in_play[ii];
+      let left = 0;
+      for (let jj = 0; jj < card.effects.length; ++jj) {
+        left += card.effects[jj].duration;
+      }
+      drawCard(card, x, in_play_y0, z, 0x000000ff, 1);
+      glov_ui.drawRect(x, in_play_y0 + left / card.total * card_h, x + card_w, in_play_y0 + card_h, z + 2, [0, 0, 0, 0.5]);
     }
   }
 
@@ -978,7 +1030,7 @@ export function main(canvas)
     glov_ui.print(glov_font.styleColored(null, 0xFFFFFFff), ui_x0 + 8, y + 4, Z.UI + 2,
       `Health: ${health} / ${player.max_health}`);
 
-    if (!spawns.length && !enemies.length && !bullets.length) {
+    if (!spawns.length && !enemies.length && !bullets.length && score.damage < player.max_health) {
       font.drawSizedAligned(glov_font.styleColored(null, 0x80FF80ff), ui_x0, 0,
         Z.UI + 1, 96, glov_font.ALIGN.HVCENTERFIT, game_width - ui_x0, y - 200, 'YOU WIN!');
     }
@@ -993,8 +1045,17 @@ export function main(canvas)
 
     drawBottomUI(dt);
 
+    // game area background
     draw_list.queue(sprites.white, board_x0, board_y0, Z.BACKGROUND + 1, [0, 0, 0, 1], [board_tile_w * board_w, board_tile_h * board_h]);
-    draw_list.queue(sprites.game_bg, 0, 0, Z.BACKGROUND, [0.2, 0.2, 0.2, 1]);
+
+    // left of game area
+    draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [board_x0 - glov_camera.x0(), glov_camera.y1() - glov_camera.y0()]);
+    // right of game area
+    draw_list.queue(sprites.white, board_x0 + board_tile_w * board_w, glov_camera.y0(), Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [1e9, glov_camera.y1() - glov_camera.y0()]);
+    // bottom
+    draw_list.queue(sprites.white, glov_camera.x0(), board_y0 + board_tile_h * board_h, Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [1e9, 1e9]);
+    // top
+    draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [1e9, board_y0 - glov_camera.y0()]);
   }
 
   function testInit(dt) {

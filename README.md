@@ -5,33 +5,38 @@ LD41 Entry by Jimbly
 
 Start with: `npm start` (after running `npm i` once)
 
+TODO:
+
+* Make work in FireFox - getting some sound errors!
+* Make sure clicking randomly doesn't win - decrease draw speed?
+
 Deckbuilding Bullet-hell Plan / TODO list
 * Build a BHS
   X avatar (movable with controls for debug)
   X simple enemy movement and firing patterns
   X collision detection / health
-  * Add Physicality to player movement / use thrust!
-  * later: powerups - some reason to move to a particular position (just + 2 cards, maybe?)
+  X Add Physicality to player movement / use thrust!
   * later: allow retry/continue upon fail
   * later: level progression
-* Card-playing while playing BHS
+  * later: powerups - some reason to move to a particular position (just +2 cards, maybe?)
+X Card-playing while playing BHS
   X Show hand of cards
   X Click card, generate input to BHS
   X Cards draw into hand at regular intervals up to hand limit
-  * later: Show hand limit (counters on empty slots?)
+  X Show hand limit (counters on empty slots?)
 * Metagame
   * Choose new cards to add (and ones to trash) between levels
   * Fixed progression of levels, or just get to choose easy/medium/hard and they set the rates for spawns?
     * Gain some kind of resources that can be spent to improve your deck?
-* Defense Cards:
-  * Reaction Defense (prevents one hit)
-  * Shield (wipes out big area, slowly shrinks)
-  * Repair
-  * Draw 3
+X Defense Cards:
+  X Reaction Defense (prevents one hit)
+  X Shield (wipes out big area, slowly shrinks)
+  X Repair
+  X Draw 3
 * Offense Cards
-  * Spread
-  * Rapid fire
-  * Beam
+  X Spread
+  X Rapid fire
+  X Beam
   * Homing
 * Enemies
   X drone - Little guys that don't shoot, lots of them in formation
