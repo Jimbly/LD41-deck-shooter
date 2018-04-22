@@ -6,7 +6,6 @@ LD41 Entry by Jimbly
 Start with: `npm start` (after running `npm i` once)
 
 Next:
-* Sound effects
 * Explosions
 * Scrolling layered background
 * Typography

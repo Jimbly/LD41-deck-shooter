@@ -88,6 +88,18 @@ export function main(canvas)
     }
 
     sound_manager.loadSound('test');
+    sound_manager.loadSound('shoot1');
+    sound_manager.loadSound('shoot2');
+    sound_manager.loadSound('shoot3');
+    sound_manager.loadSound('shoot4');
+    sound_manager.loadSound('shoot_rapid');
+    sound_manager.loadSound('react_block');
+    sound_manager.loadSound('shield_block');
+    sound_manager.loadSound('draw3');
+    sound_manager.loadSound('damage1');
+    sound_manager.loadSound('damage_player');
+    sound_manager.loadSound('destroyed_small');
+    sound_manager.loadSound('destroyed_large');
 
     const origin_0_0 = { origin: math_device.v2Build(0, 0) };
 
@@ -140,6 +152,7 @@ export function main(canvas)
         },
       ],
       sprite_idx: 0,
+      sound: 'move',
     },
     move_right: {
       name: 'MOVE RIGHT',
@@ -150,6 +163,7 @@ export function main(canvas)
         },
       ],
       sprite_idx: 1,
+      sound: 'move',
     },
     zigzag: {
       name: 'ZIG-ZAG',
@@ -168,6 +182,7 @@ export function main(canvas)
         },
       ],
       sprite_idx: 2,
+      sound: 'zigzag',
     },
     react: {
       name: 'AUTO-GUARD',
@@ -178,6 +193,7 @@ export function main(canvas)
           guard: true,
         }
       ],
+      sound: 'react_play',
     },
     shield: {
       name: 'SHIELD BUBBLE',
@@ -192,6 +208,7 @@ export function main(canvas)
           shield_shrink: SHIELD_SIZE,
         },
       ],
+      sound: 'shield',
     },
     repair: {
       name: 'REPAIR',
@@ -203,6 +220,7 @@ export function main(canvas)
           hp: 1,
         }
       ],
+      sound: 'repair',
     },
     draw3: {
       name: 'DRAW 3',
@@ -214,6 +232,7 @@ export function main(canvas)
           draw: 1,
         }
       ],
+      sound: 'button_click',
     },
     spread: {
       name: 'SPREAD',
@@ -224,6 +243,7 @@ export function main(canvas)
           weapon: 'spread',
         }
       ],
+      sound: 'spread',
     },
     rapid: {
       name: 'RAPID FIRE',
@@ -244,6 +264,7 @@ export function main(canvas)
           weapon: 'beam',
         }
       ],
+      sound: 'beam',
     },
     homing: {
       name: 'HOMING',
@@ -258,6 +279,9 @@ export function main(canvas)
   };
   for (let id in cards) {
     cards[id].id = id;
+    if (cards[id].sound) {
+      sound_manager.loadSound(cards[id].sound);
+    }
   }
 
   let cards_by_tier = [
@@ -292,17 +316,17 @@ export function main(canvas)
     }
   } else {
     // TESTING
-    deck.push('zigzag');
-    deck.push('zigzag');
-    deck.push('move_left');
-    deck.push('move_right');
-    // deck.push('repair');
-    // deck.push('shield');
-    // deck.push('react');
-    // deck.push('draw3');
-    // deck.push('spread');
-    // deck.push('rapid');
-    // deck.push('beam');
+    // deck.push('zigzag');
+    // deck.push('zigzag');
+    // deck.push('move_left');
+    // deck.push('move_right');
+    deck.push('repair');
+    deck.push('shield');
+    deck.push('react');
+    deck.push('draw3');
+    deck.push('spread');
+    deck.push('rapid');
+    deck.push('beam');
     // TODO: deck.push('homing');
   }
   let discard = [];
@@ -388,16 +412,19 @@ export function main(canvas)
   function fireWeapon(weapon, dt) {
     if (weapon === 'regular') {
       playerAddBullet(dt, 0, -player.bullet_speed);
+      sound_manager.play('shoot1', 0.33);
     }
     if (weapon === 'spread') {
       playerAddBullet(dt, player.bullet_speed * player_spread_factor_x * -1,
         -player.bullet_speed * player_spread_factor_y);
       playerAddBullet(dt, -player.bullet_speed * player_spread_factor_x * -1,
         -player.bullet_speed * player_spread_factor_y);
+      sound_manager.play('shoot1');
     }
     if (weapon === 'rapid') {
       playerAddBullet(dt, 0, -player.bullet_speed, -0.22, 0.05);
       playerAddBullet(dt, 0, -player.bullet_speed, 0.22, 0.05);
+      sound_manager.play('shoot_rapid');
     }
     if (weapon === 'beam') {
       playerAddBullet(dt, 0, -player.bullet_speed * BEAM_SPEED_SCALE, -0.05);
@@ -477,6 +504,10 @@ export function main(canvas)
       if (glov_input.keyDownHit(key_codes.K)) {
         score.damage = player.max_health;
       }
+      if (glov_input.keyDownHit(key_codes.W)) {
+        spawns = [];
+        enemies = [];
+      }
     }
     let shield = 0;
     let weapons_active = { regular: true };
@@ -511,6 +542,7 @@ export function main(canvas)
         }
         if (e.draw) {
           for (let ii = 0; ii < e.draw * portion; ++ii) {
+            sound_manager.play('draw3');
             draw(true);
           }
         }
@@ -580,13 +612,17 @@ export function main(canvas)
           }
         }
         if (blocked) {
+          sound_manager.play('react_block');
           hit_was_blocked = true;
         } else {
+          sound_manager.play('damage_player');
           score.damage++;
           hit_was_blocked = false;
         }
         hit_cooldown = player_hit_blink_time;
       }
+    } else if (player_hit && shield) {
+      sound_manager.play('shield_block');
     }
 
     let firing = !player_dead && (spawns.length || enemies.length); // && !DEBUG || DEBUG && glov_input.isKeyDown(key_codes.SPACE);
@@ -1000,6 +1036,9 @@ export function main(canvas)
       shootfn: shootDown,
       bullet_speed: 0.002,
       hp: enemy_hps[enemy_types.indexOf(name)],
+      damage_sound: 'damage1',
+      death_sound: 'destroyed_small',
+      shoot_sound: 'shoot2',
     };
     switch (name) {
       case 'drone':
@@ -1007,6 +1046,7 @@ export function main(canvas)
         e.xfn = droneX;
         e.desired_dx = ((x > board_w / 2) ? -1 : 1) * 0.0005;
         e.dx = e.desired_dx;
+        e.death_sound = 'damage1';
         break;
       case 'bomber':
         e.xscale = (e.x < board_w / 2) ? 1 : -1;
@@ -1023,6 +1063,7 @@ export function main(canvas)
         e.fire_delay = Math.PI * 2 / e.xperiod; // at peak
         e.fire_countdown = e.fire_delay * 3 / 4 + 250;
         e.shootfn = shootSniper;
+        e.shoot_sound = 'shoot3';
         break;
       case 'large1':
         e.xscale = (randInt(2) * 2 - 1);
@@ -1034,6 +1075,8 @@ export function main(canvas)
         e.burst_count = 10;
         e.burst_state = 0;
         e.firedelayfn = fireDelayBurst;
+        e.death_sound = 'destroyed_large';
+        e.shoot_sound = 'shoot4';
         break;
       case 'large2':
         e.xscale = (randInt(2) * 2 - 1);
@@ -1046,6 +1089,8 @@ export function main(canvas)
         e.burst_state = 0;
         e.firedelayfn = fireDelayBurst3;
         e.shootfn = shootSpread;
+        e.death_sound = 'destroyed_large';
+        e.shoot_sound = 'shoot4';
         break;
     }
     e.max_hp = e.hp;
@@ -1091,6 +1136,11 @@ export function main(canvas)
           bullets.pop();
           e.hp = Math.max(0, e.hp - 1);
           e.blink_at = e.age;
+          if (e.hp) {
+            sound_manager.play(e.damage_sound);
+          } else {
+            sound_manager.play(e.death_sound);
+          }
         }
       }
       if (!e.hp) {
@@ -1117,6 +1167,7 @@ export function main(canvas)
               dy: 0,
             };
             e.shootfn(b);
+            sound_manager.play(e.shoot_sound);
             bullets.push(b);
           }
         }
@@ -1151,6 +1202,9 @@ export function main(canvas)
       card.total += card.effects[ii].duration;
     }
     cards_in_play.push(card);
+    if (card.sound) {
+      sound_manager.play(card.sound);
+    }
   }
 
   let draw_countdown = 0;
@@ -1255,6 +1309,7 @@ export function main(canvas)
         String.fromCharCode('1'.charCodeAt(0) + ii));
       let scale = 1;
       if (playme || glov_input.isMouseOver(bounds)) {
+        glov_ui.setMouseOver('card' + ii);
         mouseover_card = hand[ii];
         scale = 1.2;
         x -= (card_w * scale - card_w) / 2;
@@ -1277,11 +1332,11 @@ export function main(canvas)
       let y = hand_y0;
       let message = 'Draw...';
       let text_x = x + 5;
-      if (hand.length >= hand_size) {
-        message = 'Hand full';
-        text_x += 15;
-      } else if (!discard.length && !deck.length) {
+      if (!discard.length && !deck.length) {
         message = 'No more cards';
+        text_x += 15;
+      } else if (hand.length >= hand_size) {
+        message = 'Hand full';
         text_x += 15;
       }
       font.drawSizedAligned(style, text_x, y, Z.UI + 1, 24, glov_font.ALIGN.VCENTER, card_w, card_h,
@@ -1416,6 +1471,7 @@ export function main(canvas)
       let extra_scale = 1.0;
       let price_offs = 6;
       if (buyme || afford && glov_input.isMouseOver(bounds)) {
+        glov_ui.setMouseOver('card' + ii);
         extra_scale = 1.2;
         z += 20;
         price_offs += 8;
@@ -1429,6 +1485,7 @@ export function main(canvas)
       yy -= (card_h * scale  * extra_scale - card_h * scale ) / 2;
       drawCard(cards[cards_for_sale[ii]], xx, yy, z, scale * extra_scale); // eats clicks due to panel()
       if (buyme) {
+        glov_ui.playUISound('button_click');
         money -= cost;
         deck.push(cards_for_sale[ii]);
         cards_for_sale.splice(ii, 1);
@@ -1460,6 +1517,7 @@ export function main(canvas)
       let extra_scale = 1.0;
       let price_offs = 6;
       if (trashme || afford && glov_input.isMouseOver(bounds)) {
+        glov_ui.setMouseOver('trashcard' + ii);
         extra_scale = 1.2;
         z += 20;
         price_offs += 8;
@@ -1473,6 +1531,7 @@ export function main(canvas)
       yy -= (card_h * scale  * extra_scale - card_h * scale ) / 2;
       drawCard(cards[deck[ii]], xx, yy, z, scale * extra_scale); // eats clicks due to panel()
       if (trashme) {
+        glov_ui.playUISound('button_click');
         money -= TRASH_COST;
         deck.splice(ii, 1);
       }
