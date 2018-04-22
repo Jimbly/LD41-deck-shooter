@@ -6,7 +6,6 @@ LD41 Entry by Jimbly
 Start with: `npm start` (after running `npm i` once)
 
 Next:
-* Typography
 * Try putting deck under the action
 * Borders/frame
 * More levels - seed 10, order by difficulty?

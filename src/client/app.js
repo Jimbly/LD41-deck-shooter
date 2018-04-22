@@ -489,6 +489,13 @@ export function main(canvas)
 
   let float_score_style = glov_font.style(null, {
     color: 0x00FF00ff,
+    outline_width: 3,
+    outline_color: 0x00000080,
+    glow_xoffs: 3.25,
+    glow_yoffs: 3.25,
+    glow_inner: -2.5,
+    glow_outer: 5,
+    glow_color: 0x000000ff,
   });
   function addMoney(x, y, m) {
     score.money += m;
@@ -1232,17 +1239,27 @@ export function main(canvas)
     }
   }
 
+  let style_card_label = glov_font.style(null, {
+    color: 0x000000ff,
+    outline_width: 0,
+    outline_color: 0x00000000,
+    glow_xoffs: 0,
+    glow_yoffs: 0,
+    glow_inner: -2.5,
+    glow_outer: 5,
+    glow_color: 0xFFFFFFff,
+  });
+
   let draw_countdown = 0;
   let card_h = 120;
   let card_w = (2.5/3.5) * card_h;
   function drawCard(card, x, y, z, scale) {
-    let color = 0x000000ff;
     let pad = 0.05 * card_w * scale;
     let icon_w = card_w * scale - pad * 2;
     draw_list.queue(sprites.cards, x + pad, y + pad, z + 1, color_white,
       [icon_w, icon_w], sprites.cards.uidata.rects[card.sprite_idx]);
     let text_y = y + icon_w + pad;
-    font.drawSizedAligned(glov_font.styleColored(null, color), x + pad, text_y,
+    font.drawSizedAligned(style_card_label, x + pad, text_y,
       z, 12 * scale, glov_font.ALIGN.HVCENTERFIT, icon_w, y + card_h * scale - text_y, card.name);
 
     // Panel last, it eats clicks!
@@ -1284,6 +1301,16 @@ export function main(canvas)
       game_state = levelWon;
     }
   }
+  let style_hand_ui = glov_font.style(null, {
+    color: 0xFFFFFFff,
+    outline_width: 3,
+    outline_color: 0x00000080,
+    glow_xoffs: 3.25,
+    glow_yoffs: 3.25,
+    glow_inner: -2.5,
+    glow_outer: 5,
+    glow_color: 0x000000ff,
+  });
   function drawHand(dt) {
     mouseover_card = null;
     let hand_x0 = ui_x0;
@@ -1291,7 +1318,7 @@ export function main(canvas)
     let in_play_y0 = hand_y0 - card_h - 50;
 
     if (player_dead) {
-      glov_ui.print(null, hand_x0 + 24, hand_y0 + card_h / 2 - 12, Z.UI, 'SHIP DESTROYED');
+      glov_ui.print(style_hand_ui, hand_x0 + 24, hand_y0 + card_h / 2 - 12, Z.UI, 'SHIP DESTROYED');
       if (glov_ui.buttonText({
         x: hand_x0 + 24,
         y: hand_y0 - 80,
@@ -1313,9 +1340,9 @@ export function main(canvas)
       draw_countdown -= dt;
     }
 
-    glov_ui.print(null, hand_x0, in_play_y0 - 40, Z.UI, 'IN PLAY');
+    glov_ui.print(style_hand_ui, hand_x0, in_play_y0 - 40, Z.UI, 'IN PLAY');
 
-    glov_ui.print(null, hand_x0, hand_y0 - 40, Z.UI, 'HAND');
+    glov_ui.print(style_hand_ui, hand_x0, hand_y0 - 40, Z.UI, 'HAND');
 
     for (let ii = hand.length - 1; ii >= 0; --ii) {
       let x = hand_x0 + card_w * ii;
@@ -1351,7 +1378,7 @@ export function main(canvas)
     }
 
     {
-      let style = glov_font.styleColored(null, 0xDDDDDDff);
+      let style = glov_font.styleColored(style_hand_ui, 0xDDDDDDff);
       let x = ui_x0 + card_w * hand.length;
       let y = hand_y0;
       let message = 'Draw...';
@@ -1386,7 +1413,11 @@ export function main(canvas)
   function drawBottomUI() {
     let y = game_height - 16;
     y-= 24;
-    glov_ui.print(glov_font.styleColored(null, 0xFFFFFFff), ui_x0, y, Z.UI,
+    glov_ui.print(glov_font.style(null, {
+      color: 0xFFFFFFff,
+      outline_width: 3,
+      outline_color: 0x00000080,
+    }), ui_x0, y, Z.UI,
       `Cash: \$${score.money}    Level: ${level_num + 1} / ${max_levels}`);
     y -= 4;
     let health_height = 24 + 8;
@@ -1395,7 +1426,11 @@ export function main(canvas)
     y -= health_height;
     glov_ui.drawRect(ui_x0, y, ui_x0 + health_width, y + health_height, Z.UI, [0.5, 0, 0, 1]);
     glov_ui.drawRect(ui_x0, y, ui_x0 + health_width * health / player.max_health, y + health_height, Z.UI + 1, [0, 0.5, 0, 1]);
-    glov_ui.print(glov_font.styleColored(null, 0xFFFFFFff), ui_x0 + 8, y + 4, Z.UI + 2,
+    glov_ui.print(glov_font.style(null, {
+      color: 0xFFFFFFff,
+      outline_width: 3,
+      outline_color: 0x000000DD,
+    }), ui_x0 + 8, y + 4, Z.UI + 2,
       `Health: ${health} / ${player.max_health}`);
   }
 
@@ -1471,15 +1506,42 @@ export function main(canvas)
     gameplay(dt);
   }
 
+  let style_victory = glov_font.style(null, {
+    color: 0x80FF80ff,
+    outline_width: 3,
+    outline_color: 0x000000ff,
+    glow_xoffs: 0,
+    glow_yoffs: 0,
+    glow_inner: 1,
+    glow_outer: 5,
+    glow_color: 0xFFFF00ff,
+  });
+  let style_retry = glov_font.style(null, {
+    color: 0xFF8080ff,
+    outline_width: 2,
+    outline_color: 0x000000ff,
+    glow_xoffs: 0,
+    glow_yoffs: 0,
+    glow_inner: 0,
+    glow_outer: 0,
+    glow_color: 0x000000ff,
+  });
+
   levelWon = function() {
+    /* jshint bitwise:false */
     let y = 20;
-    glov_ui.drawRect(20, y, game_width - 20, y + 180, Z.UI - 1, [0.2, 0.2, 0.2, 1]);
+    glov_ui.drawRect(20, y, game_width - 20, y + 190, Z.UI - 1, [0.2, 0.2, 0.2, 1]);
+    style_victory.glow_color = 0xFFFF0000 | (Math.abs(Math.sin(glov_engine.getFrameTimestamp() * 0.003)) * 255 | 0);
     font.drawSizedAligned(glov_font.styleColored(null, 0xAAAAAAff), 0, 28,
       Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Level ${level_num+1} ${level_won_is_victory ? 'Complete' : 'Failed'}!`);
-    font.drawSizedAligned(glov_font.styleColored(null, level_won_is_victory ? 0x80FF80ff : 0xFF8080ff), 0, 0,
+    font.drawSizedAligned(level_won_is_victory ? style_victory : style_retry, 0, 10,
       Z.UI, 96, glov_font.ALIGN.HVCENTERFIT, game_width, 200, level_won_is_victory ? 'VICTORY!' : 'RETRY LEVEL');
-    y += 130;
-    font.drawSizedAligned(glov_font.styleColored(null, 0xFFFF00ff), 0, y,
+    y += 140;
+    font.drawSizedAligned(glov_font.style(null, {
+      color: 0xFFFF00ff,
+      outline_width: 3,
+      outline_color: 0x00000080,
+    }), 0, y,
       Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Cash: \$${money}`);
     y += 50;
     y += 20;
@@ -1487,7 +1549,11 @@ export function main(canvas)
     y += 20;
 
     let x = 40;
-    const section_style = glov_font.styleColored(null, 0xFFFFFFff);
+    const section_style = glov_font.style(null, {
+      outline_width: 3,
+      outline_color: 0x00000080,
+      color: 0xFFFFFFff
+    });
 
     if (level_num + 1 === max_levels) {
       y += 36 + 8;
@@ -1595,7 +1661,7 @@ export function main(canvas)
 
     if (money !== level_won_saved.money &&  glov_ui.buttonText({
       x: game_width / 2 - 400 - 20,
-      y: game_height - 64 - 80,
+      y: game_height - 64 - 40,
       font_height: 48,
       text: 'UNDO'
     })) {
@@ -1606,7 +1672,7 @@ export function main(canvas)
 
     if (glov_ui.buttonText({
       x: game_width / 2 + 20,
-      y: game_height - 64 - 80,
+      y: game_height - 64 - 40,
       font_height: 48,
       text: 'Next Level'
     })) {
