@@ -6,8 +6,6 @@ LD41 Entry by Jimbly
 Start with: `npm start` (after running `npm i` once)
 
 Next:
-* Explosions
-* Scrolling layered background
 * Typography
 * Try putting deck under the action
 * Borders/frame
@@ -15,6 +13,7 @@ Next:
   * Or, continue to unlimited mode after beating level 3?
 * Add high scores?  Score is # of deaths, then total money earned?
 * Make sure clicking randomly doesn't win - decrease draw speed?
+* Particles systems on damage
 
 Polish:
 * Re-do player and enemies and bullets

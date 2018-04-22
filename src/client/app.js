@@ -8,15 +8,18 @@
 const local_storage = require('./local_storage.js');
 local_storage.storage_prefix = 'turbulenz-LD41';
 const util = require('./glov/util.js');
+const particle_data = require('./particle_data.js');
 window.Z = window.Z || {};
 Z.BACKGROUND = 0;
 Z.SPRITES = 10;
+Z.PARTICLES = 20;
 Z.FLOAT = 100;
 
 const DEBUG = window.location.toString().indexOf('localhost') !== -1;
 
 let levelWon;
 let levelWonInit;
+let spaceParamsInit;
 
 // Balance params
 const DRAW_RATE = 2000;
@@ -87,6 +90,9 @@ export function main(canvas)
       return;
     }
 
+    loadTexture('circle_alpha_gradient.png');
+    loadTexture('circle_alpha_gradient8.png');
+
     sound_manager.loadSound('test');
     sound_manager.loadSound('shoot1');
     sound_manager.loadSound('shoot2');
@@ -123,6 +129,11 @@ export function main(canvas)
     }
     sprites.bullet_small = loadSprite('bullet_small.png', bullet_size, bullet_size);
     sprites.bullet_large = loadSprite('bullet_large.png', bullet_size, bullet_size);
+
+    sprites.space = [];
+    for (let ii = 0; ii < 3; ++ii) {
+      sprites.space[ii] = loadSprite(`space${ii+1}.png`, 128, 64, origin_0_0);
+    }
 
     sprites.cards = glov_ui.loadSpriteRect('cards.png', [13, 13, 13], [13, 13, 13, 13]);
 
@@ -260,7 +271,7 @@ export function main(canvas)
       sprite_idx: 9,
       effects: [
         {
-          duration: 2000,
+          duration: 1750,
           weapon: 'beam',
         }
       ],
@@ -486,6 +497,7 @@ export function main(canvas)
     floatText(x, y, FLOAT_SCORE_TIME, `+\$${m}`, float_score_style);
   }
 
+  let mouseover_card = null;
   function updatePlayer(dt) {
     let p = player;
     let dx = 0;
@@ -618,6 +630,11 @@ export function main(canvas)
           sound_manager.play('damage_player');
           score.damage++;
           hit_was_blocked = false;
+          if (score.damage === player.max_health) {
+            sound_manager.play('destroyed_large');
+            glov_engine.glov_particles.createSystem(particle_data.defs.explosion_player,
+              [p.x * board_tile_w + board_x0, p.y * board_tile_h + board_y0, Z.PARTICLES]);
+          }
         }
         hit_cooldown = player_hit_blink_time;
       }
@@ -891,6 +908,7 @@ export function main(canvas)
   let level_num = 0;
   let max_levels = level_data.length;
   function initLevel(level_num) {
+    spaceParamsInit();
     floaters = [];
     cardsToDeck();
     shuffle();
@@ -903,13 +921,16 @@ export function main(canvas)
     spawns = [];
     level_timestamp = 0;
     if (DEBUG && false) {
+      let rand = random_seed.create('test');
+      spawnOne(rand, 'drone', 0);
+      spawnOne(rand, 'drone', 120000);
       // let rand = random_seed.create('test');
       // spawnDrones(0, 0);
       // spawnOne(rand, 'large1', 0);
       // spawnOne(rand, 'large1', 0);
       // spawnOne(rand, 'large1', 0);
       // spawnPair(rand, 'large2', 2000);
-      setupSpawns('level1a', 170, 40000);
+      //setupSpawns('level1a', 170, 40000);
     } else if (level_num === 0 && false) {
       // 178 HP
       let rand = random_seed.create('test');
@@ -1039,6 +1060,7 @@ export function main(canvas)
       damage_sound: 'damage1',
       death_sound: 'destroyed_small',
       shoot_sound: 'shoot2',
+      death_system: 'explosion',
     };
     switch (name) {
       case 'drone':
@@ -1047,6 +1069,7 @@ export function main(canvas)
         e.desired_dx = ((x > board_w / 2) ? -1 : 1) * 0.0005;
         e.dx = e.desired_dx;
         e.death_sound = 'damage1';
+        e.death_system = 'explosion_small';
         break;
       case 'bomber':
         e.xscale = (e.x < board_w / 2) ? 1 : -1;
@@ -1140,6 +1163,8 @@ export function main(canvas)
             sound_manager.play(e.damage_sound);
           } else {
             sound_manager.play(e.death_sound);
+            glov_engine.glov_particles.createSystem(particle_data.defs[e.death_system],
+              [e.x * board_tile_w + board_x0, e.y * board_tile_h + board_y0, Z.PARTICLES]);
           }
         }
       }
@@ -1259,7 +1284,6 @@ export function main(canvas)
       game_state = levelWon;
     }
   }
-  let mouseover_card = null;
   function drawHand(dt) {
     mouseover_card = null;
     let hand_x0 = ui_x0;
@@ -1375,6 +1399,39 @@ export function main(canvas)
       `Health: ${health} / ${player.max_health}`);
   }
 
+  let space_params;
+  const SPACE_W = 128;
+  const SPACE_H = 64;
+  spaceParamsInit = function() {
+    space_params = [];
+    let a = 0.75;
+    for (let ii = 0; ii < sprites.space.length; ++ii) {
+      let my_a = (ii === sprites.space.length - 1) ? a : Math.min(Math.random() * a, 0.66);
+      a -= my_a;
+      space_params.push({
+        xoffs: Math.random() * SPACE_W,
+        dx: (Math.random() * 2 - 1) * 0.0001,
+        yoffs: Math.random() * SPACE_H,
+        dy: -(0.001 + Math.random() * 0.010),
+        a: my_a,
+      });
+    }
+  };
+  function drawBackground(dt) {
+    draw_list.queue(sprites.white, board_x0, board_y0, Z.BACKGROUND, [0, 0, 0, 1], [board_tile_w * board_w, board_tile_h * board_h]);
+    const SPACE_BUCKET = 'additive_nearest';
+    let rect = [board_tile_w * board_w, board_tile_h * board_h];
+    let texel_scale = SPACE_H / rect[1]; // texels per pixel
+    let space_screen_w = texel_scale * rect[0]; // texels that fit
+    for (let ii = 0; ii < space_params.length; ++ii) {
+      let p = space_params[ii];
+      p.xoffs += p.dx * dt;
+      p.yoffs += p.dy * dt;
+      draw_list.queue(sprites.space[ii], board_x0, board_y0, Z.BACKGROUND + 0.1 + ii * 0.1, [1,1,1,p.a], rect,
+        [p.xoffs, p.yoffs, p.xoffs + space_screen_w, p.yoffs + SPACE_H], 0, SPACE_BUCKET);
+    }
+  }
+
   function gameplay(dt) {
     if (DEBUG && glov_input.isKeyDown(key_codes.LEFT_SHIFT)) {
       dt *= 3;
@@ -1389,8 +1446,7 @@ export function main(canvas)
 
     drawFloaters(dt);
 
-    // game area background
-    draw_list.queue(sprites.white, board_x0, board_y0, Z.BACKGROUND + 1, [0, 0, 0, 1], [board_tile_w * board_w, board_tile_h * board_h]);
+    drawBackground(dt);
 
     // left of game area
     draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.SPRITES + 9, [0.2, 0.2, 0.2, 1], [board_x0 - glov_camera.x0(), glov_camera.y1() - glov_camera.y0()]);
@@ -1492,7 +1548,7 @@ export function main(canvas)
       }
     }
     y += card_h * scale + 40;
-    font.drawSized(section_style, x, y, Z.UI, 36, `YOUR DECK (minimum 5 cards) click to trash:`);
+    font.drawSized(section_style, x, y, Z.UI, 36, `YOUR DECK - ${deck.length > 5 ? 'click to trash:' : '5 cards minimum'}`);
     y += 36 + 8;
     let afford = TRASH_COST <= money && (deck.length > 5);
     scale = 1.0;
