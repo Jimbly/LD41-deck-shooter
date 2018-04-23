@@ -425,7 +425,7 @@ export function main(canvas)
     color: math_device.v4Copy(color_white),
     bullet_speed: 0.005,
     fire_countdowns: [],
-    max_health: DEBUG ? 10 : 10,
+    max_health: DEBUG ? 1000 : 10,
   };
   for (let ii = 0; ii < weapons.length; ++ii) {
     player.fire_countdowns[ii] = 0;
@@ -952,7 +952,7 @@ export function main(canvas)
     ['level7', 800, 70000],
     ['level8', 1000, 70000],
   ];
-  let level_num = 0;
+  let level_num = DEBUG ? 7 : 0;
   let max_levels = level_data.length;
   function initLevel(level_num) {
     spaceParamsInit();
@@ -1536,7 +1536,7 @@ export function main(canvas)
       }
     }
     y += 8;
-    if (found_me) {
+    if (found_me && score_system.player_name.indexOf('Anonymous') === 0) {
       if (!scores_edit_box) {
         scores_edit_box = glov_ui.createEditBox({
           x: 300,
