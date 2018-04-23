@@ -5,7 +5,6 @@ LD41 Entry by Jimbly
 
 Start with: `npm start` (after running `npm i` once)
 
-
 Polish:
 * Add high scores?  Score is # of deaths, then total money earned?
 * Particles systems on damage

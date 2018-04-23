@@ -533,6 +533,7 @@ export function main(canvas)
   });
   function addMoney(x, y, m) {
     score.money += m;
+    score.money_total += m;
     x = board_x0 + x * board_tile_w - 15;
     y = board_y0 + y * board_tile_h;
     floatText(x, y, FLOAT_SCORE_TIME, `+\$${m}`, float_score_style);
@@ -1308,11 +1309,14 @@ export function main(canvas)
       h: card_h * scale,
     });
   }
-  let money;
   let cards_for_sale;
   let level_won_saved;
   let level_won_is_victory;
   function genCardsForSale() {
+    level_won_saved = {
+      deck: util.clone(deck),
+      money: score.money,
+    };
     cards_for_sale = [];
     for (let ii = 0; ii < cards_by_tier.length; ++ii) {
       for (let jj = 0; jj < 2; ++jj) {
@@ -1323,21 +1327,11 @@ export function main(canvas)
     level_won_saved.cards = util.clone(cards_for_sale);
   }
   function retryLevel() {
-    if (level_num === 0) {
-      // Just reset everything to defaults, no buying of anything
-      score.money = 0;
-      initLevel(level_num);
-    } else {
-      // revert money, go back to buying things
-      cardsToDeck();
-      //money = score.money = level_won_saved.money;
-      money = score.money; // NOT restoring this
-      deck = util.clone(level_won_saved.deck);
-      level_won_is_victory = false;
-      --level_num;
-      genCardsForSale();
-      game_state = levelWon;
-    }
+    cardsToDeck();
+    level_won_is_victory = false;
+    --level_num;
+    genCardsForSale();
+    game_state = levelWon;
   }
   let style_hand_ui = glov_font.style(null, {
     color: 0xFFFFFFff,
@@ -1595,7 +1589,7 @@ export function main(canvas)
     glov_ui.drawRect(20, y, game_width - 20, y + 190, Z.UI - 1, [0.2, 0.2, 0.2, 1]);
     style_victory.glow_color = 0xFFFF0000 | (Math.abs(Math.sin(glov_engine.getFrameTimestamp() * 0.003)) * 255 | 0);
     font.drawSizedAligned(glov_font.styleColored(null, 0xAAAAAAff), 0, 28,
-      Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Level ${level_num+1} ${level_won_is_victory ? 'Complete' : 'Failed'}!`);
+      Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Level ${level_won_is_victory ? level_num + 1 : level_num + 2} ${level_won_is_victory ? 'Complete' : 'Failed'}!`);
     font.drawSizedAligned(level_won_is_victory ? style_victory : style_retry, 0, 10,
       Z.UI, 96, glov_font.ALIGN.HVCENTERFIT, game_width, 200, level_won_is_victory ? 'VICTORY!' : 'RETRY LEVEL');
     y += 140;
@@ -1604,7 +1598,7 @@ export function main(canvas)
       outline_width: 3,
       outline_color: 0x00000080,
     }), 0, y,
-      Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Cash: \$${money}`);
+      Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Cash: \$${score.money}`);
     y += 50;
     y += 20;
     glov_ui.drawRect(20, y, game_width - 20, game_height - 20, Z.UI - 1, [0.2, 0.2, 0.2, 1]);
@@ -1640,7 +1634,7 @@ export function main(canvas)
     let scale = 1.5;
     for (let ii = 0; ii < cards_for_sale.length; ++ii) {
       let cost = COST_BY_TIER[cards[cards_for_sale[ii]].tier];
-      let afford = cost <= money;
+      let afford = cost <= score.money;
       let xx = x + (card_w * scale + 8) * ii;
       let yy = y;
       let z = Z.UI + ii * 10;
@@ -1670,7 +1664,7 @@ export function main(canvas)
       drawCard(cards[cards_for_sale[ii]], xx, yy, z, scale * extra_scale); // eats clicks due to panel()
       if (buyme) {
         glov_ui.playUISound('button_click');
-        money -= cost;
+        score.money -= cost;
         deck.push(cards_for_sale[ii]);
         cards_for_sale.splice(ii, 1);
       }
@@ -1678,7 +1672,7 @@ export function main(canvas)
     y += card_h * scale + 40;
     font.drawSized(section_style, x, y, Z.UI, 36, `YOUR DECK - ${deck.length > 5 ? 'click to trash:' : '5 cards minimum'}`);
     y += 36 + 8;
-    let afford = TRASH_COST <= money && (deck.length > 5);
+    let afford = TRASH_COST <= score.money && (deck.length > 5);
     scale = 1.0;
     let xmod = 0;
     for (let ii = 0; ii < deck.length; ++ii) {
@@ -1716,18 +1710,18 @@ export function main(canvas)
       drawCard(cards[deck[ii]], xx, yy, z, scale * extra_scale); // eats clicks due to panel()
       if (trashme) {
         glov_ui.playUISound('button_click');
-        money -= TRASH_COST;
+        score.money -= TRASH_COST;
         deck.splice(ii, 1);
       }
     }
 
-    if (money !== level_won_saved.money &&  glov_ui.buttonText({
+    if (score.money !== level_won_saved.money &&  glov_ui.buttonText({
       x: game_width / 2 - 400 - 20,
       y: game_height - 64 - 40,
       font_height: 48,
       text: 'UNDO'
     })) {
-      money = level_won_saved.money;
+      score.money = level_won_saved.money;
       cards_for_sale = util.clone(level_won_saved.cards);
       deck = util.clone(level_won_saved.deck);
     }
@@ -1736,11 +1730,10 @@ export function main(canvas)
       x: game_width / 2 + 20,
       y: game_height - 64 - 40,
       font_height: 48,
-      text: 'Next Level'
+      text: level_won_is_victory ? 'Next Level' : 'Retry Level'
     })) {
       level_num++;
       game_state = gameplayInit;
-      score.money = money;
     }
   };
 
@@ -1752,19 +1745,6 @@ export function main(canvas)
     cardsToDeck();
     level_won_is_victory = true;
     game_state = levelWon;
-    money = score.money;
-    if (DEBUG && false) {
-      money += 875;
-    }
-    let new_money = money;
-    if (level_won_saved) {
-      new_money -= level_won_saved.money;
-    }
-    score.money_total += new_money;
-    level_won_saved = {
-      deck: util.clone(deck),
-      money: money,
-    };
     genCardsForSale();
     levelWon(dt);
   };
