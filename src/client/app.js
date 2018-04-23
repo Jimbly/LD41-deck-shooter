@@ -41,6 +41,7 @@ export function main(canvas)
   const random_seed = require('random-seed');
   const glov_engine = require('./glov/engine.js');
   const glov_font = require('./glov/font.js');
+  const score_system = require('./score.js');
 
   glov_engine.startup({
     canvas,
@@ -67,6 +68,25 @@ export function main(canvas)
     button_click: 'button_click',
     rollover: 'rollover',
   });
+
+
+  // higher score is "better"
+  const score_mod1 = 1000000;
+  const score_mod2 = 10000;
+  const deaths_inv = 9999;
+  function scoreToValue(score) {
+    return score.level * score_mod1 * score_mod2 + (deaths_inv - score.deaths) * score_mod1 + score.money;
+  }
+  function valueToScore(score) {
+    let money = score % score_mod1;
+    score = Math.floor(score / score_mod1);
+    let deaths = deaths_inv - score % score_mod2;
+    score = Math.floor(score / score_mod2);
+    let level = score;
+    return { level, deaths, money };
+  }
+  score_system.init(scoreToValue, valueToScore, { all: { name: 'all' }}, 'LD41');
+  score_system.getScore('all');
 
   const color_black = math_device.v4Build(0, 0, 0, 1);
   const color_white = math_device.v4Build(1, 1, 1, 1);
@@ -1725,6 +1745,10 @@ export function main(canvas)
   };
 
   levelWonInit = function (dt) {
+    score_system.setScore('all', { level: level_num, deaths: score.retries, money: score.money_total }, function () {
+      // have_scores = true;
+    });
+
     cardsToDeck();
     level_won_is_victory = true;
     game_state = levelWon;
