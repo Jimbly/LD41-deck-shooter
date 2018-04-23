@@ -5,13 +5,10 @@ LD41 Entry by Jimbly
 
 Start with: `npm start` (after running `npm i` once)
 
-Next:
-* Add high scores?  Score is # of deaths, then total money earned?
-* Make sure clicking randomly doesn't win - decrease draw speed?
-* Particles systems on damage
 
 Polish:
-* Re-do player and enemies and bullets
+* Add high scores?  Score is # of deaths, then total money earned?
+* Particles systems on damage
 * Upgrades for health, hand size, unlimited mode
 
 Stretch:

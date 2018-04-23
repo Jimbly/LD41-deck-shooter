@@ -125,10 +125,10 @@ export function main(canvas)
 
     sprites.white = loadSprite('white', 1, 1, origin_0_0);
     sprites.vignette = loadSprite('vignette.png', 64, 64, origin_0_0);
-    sprites.player = loadSprite('player.png', sprite_size, sprite_size);
+    sprites.player = loadSprite('player13.png', 13, 13);
     sprites.enemies = {};
     for (let ii = 0; ii < enemy_types.length; ++ii) {
-      sprites.enemies[enemy_types[ii]] = loadSprite(`enemy_${enemy_types[ii]}.png`, sprite_size, sprite_size);
+      sprites.enemies[enemy_types[ii]] = loadSprite(`enemy_${enemy_types[ii]}13.png`, 13, 13);
     }
     sprites.bullet_small = loadSprite('bullet_small.png', bullet_size, bullet_size);
     sprites.bullet_large = loadSprite('bullet_large.png', bullet_size, bullet_size);
@@ -139,6 +139,7 @@ export function main(canvas)
     }
 
     sprites.cards = glov_ui.loadSpriteRect('cards.png', [13, 13, 13], [13, 13, 13, 13]);
+    sprites.border = glov_ui.loadSpriteRect('border.png', [8, 24, 32], [8, 48, 8]);
 
     sprites.game_bg = loadSprite('white', 1, 1, {
       width : game_width,
@@ -1517,14 +1518,18 @@ export function main(canvas)
 
     drawBackground(dt);
 
-    // left of game area
-    draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.BORDER, [0.2, 0.2, 0.2, 1], [board_x0 - glov_camera.x0(), glov_camera.y1() - glov_camera.y0()]);
-    // right of game area
-    draw_list.queue(sprites.white, board_x0 + board_tile_w * board_w, glov_camera.y0(), Z.BORDER, [0.2, 0.2, 0.2, 1], [1e9, glov_camera.y1() - glov_camera.y0()]);
-    // bottom
-    draw_list.queue(sprites.white, glov_camera.x0(), board_y0 + board_tile_h * board_h, Z.BORDER, [0.2, 0.2, 0.2, 1], [1e9, 1e9]);
-    // top
-    draw_list.queue(sprites.white, glov_camera.x0(), glov_camera.y0(), Z.BORDER, [0.2, 0.2, 0.2, 1], [1e9, board_y0 - glov_camera.y0()]);
+    // game area border
+    let xpos = [glov_camera.x0(), board_x0, board_x0 + board_tile_w * board_w, glov_camera.x1()];
+    let ypos = [glov_camera.y0(), board_y0, board_y0 + board_tile_h * board_h, glov_camera.y1()];
+    for (let ii = 0; ii < 3; ++ii) {
+      for (let jj = 0; jj < 3; ++jj) {
+        if (ii === 1 && jj === 1) {
+          continue;
+        }
+        draw_list.queue(sprites.border, xpos[ii], ypos[jj], Z.BORDER, color_white,
+          [xpos[ii + 1] - xpos[ii], ypos[jj + 1] - ypos[jj]], sprites.border.uidata.rects[ii + jj * 3]);
+      }
+    }
     // vignette
     let color = math_device.v4Lerp(color_black, color_red, clamp(hit_cooldown / player_hit_blink_time, 0, 1));
     draw_list.queue(sprites.vignette, board_x0, board_y0, Z.BORDER, color, [board_w * board_tile_w, board_h * board_tile_h], null, 0, 'alpha');
