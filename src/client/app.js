@@ -1482,6 +1482,89 @@ export function main(canvas)
       `Health: ${health} / ${player.max_health}`);
   }
 
+  let scores_edit_box;
+  function drawHighScores(dt) {
+    /* jshint bitwise:false */
+    if (!have_scores) {
+      return;
+    }
+    let x = ui_x0;
+    let y = 8;
+    let width = game_width - x - 24;
+    font.drawSizedAligned(null, x, y, Z.UI, 36, glov_font.ALIGN.HCENTERFIT, width, 0, 'HIGH SCORES');
+    y += 36 + 4;
+    let scores = score_system.high_scores.all;
+    let widths = [8, 40, 15, 15, 20];
+    let widths_total = 0;
+    for (let ii = 0; ii < widths.length; ++ii) {
+      widths_total += widths[ii];
+    }
+    let set_pad = 4;
+    for (let ii = 0; ii < widths.length; ++ii) {
+      widths[ii] *= (width - set_pad * (widths.length - 1)) / widths_total;
+    }
+    let align = [
+      glov_font.ALIGN.HFIT | glov_font.ALIGN.HRIGHT,
+      glov_font.ALIGN.HFIT,
+      glov_font.ALIGN.HFIT | glov_font.ALIGN.HCENTER,
+      glov_font.ALIGN.HFIT | glov_font.ALIGN.HCENTER,
+      glov_font.ALIGN.HFIT | glov_font.ALIGN.HRIGHT,
+    ];
+    function drawSet(arr, style) {
+      let xx = x;
+      for (let ii = 0; ii < arr.length; ++ii) {
+        font.drawSizedAligned(style, xx, y, Z.UI, 24, align[ii], widths[ii], 0, '' + arr[ii]);
+        xx += widths[ii] + set_pad;
+      }
+      y += 24;
+    }
+    drawSet(['', 'Name', 'Level', 'Deaths', 'Cash'], glov_font.styleColored(null, 0x808080ff));
+    y += 6;
+    let score_style = glov_font.styleColored(null, 0xFFFFFFff);
+    let found_me = false;
+    for (let ii = 0; ii < scores.length; ++ii) {
+      let s = scores[ii];
+      let style = score_style;
+      let drawme = false;
+      if (s.name === score_system.player_name) {
+        style = glov_font.styleColored(null, 0x00FF00Fff);
+        found_me = true;
+        drawme = true;
+      }
+      if (ii < 15 || drawme) {
+        drawSet([`#${ii+1}`, score_system.formatName(s), s.score.level+1, s.score.deaths, s.score.money], style);
+      }
+    }
+    y += 8;
+    if (found_me) {
+      if (!scores_edit_box) {
+        scores_edit_box = glov_ui.createEditBox({
+          x: 300,
+          y: 100,
+          w: 200,
+        });
+        scores_edit_box.setText(score_system.player_name);
+      }
+
+      if (scores_edit_box.run({
+        x,
+        y,
+      }) === scores_edit_box.SUBMIT || glov_ui.buttonText({
+        x: x + scores_edit_box.w + 20,
+        y,
+        w: 280,
+        h: glov_ui.button_height / 2,
+        font_height: glov_ui.font_height * 0.75,
+        text: 'Update Player Name'
+      })) {
+        // scores_edit_box.text
+        if (scores_edit_box.text) {
+          score_system.updatePlayerName(scores_edit_box.text);
+        }
+      }
+    }
+  }
+
   let space_params;
   const SPACE_W = 128;
   const SPACE_H = 64;
@@ -1527,6 +1610,7 @@ export function main(canvas)
     drawHand(dt);
 
     drawBottomUI(dt);
+    drawHighScores(dt);
 
     drawFloaters(dt);
 
@@ -1554,12 +1638,16 @@ export function main(canvas)
     }
   }
 
+  let have_scores = false;
   function gameplayInit(dt) {
     initLevel(level_num);
     $('.screen').hide();
     $('#title').show();
     game_state = gameplay;
     gameplay(dt);
+    score_system.updateHighScores(function () {
+      have_scores = true;
+    });
   }
 
   let style_victory = glov_font.style(null, {
@@ -1583,6 +1671,19 @@ export function main(canvas)
     glow_color: 0x000000ff,
   });
 
+  function myHighScorePos() {
+    if (!have_scores) {
+      return 0;
+    }
+    let scores = score_system.high_scores.all;
+    for (let ii = 0; ii < scores.length; ++ii) {
+      if (scores[ii].name === score_system.player_name) {
+        return ii + 1;
+      }
+    }
+    return 0;
+  }
+
   levelWon = function() {
     /* jshint bitwise:false */
     let y = 20;
@@ -1603,6 +1704,40 @@ export function main(canvas)
     y += 20;
     glov_ui.drawRect(20, y, game_width - 20, game_height - 20, Z.UI - 1, [0.2, 0.2, 0.2, 1]);
     y += 20;
+
+    let x = 40;
+    const section_style = glov_font.style(null, {
+      outline_width: 3,
+      outline_color: 0x00000080,
+      color: 0xFFFFFFff
+    });
+
+    if (level_num + 1 === max_levels) {
+      y += 36 + 8;
+      font.drawSizedAligned(section_style, 0, y,
+        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, 'All levels complete!');
+      y += 36 + 8;
+      font.drawSizedAligned(section_style, 0, y,
+        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, 'Thanks for playing!');
+      y += 36 + 8;
+      y += 36 + 8;
+      font.drawSizedAligned(section_style, 0, y,
+        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Deaths: ${score.retries}`);
+      y += 36 + 8;
+      font.drawSizedAligned(section_style, 0, y,
+        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Total Cash Earned: \$${score.money_total}`);
+      y += 36 + 8;
+      if (myHighScorePos()) {
+        y += 36 + 8;
+        font.drawSizedAligned(section_style, 0, y,
+          Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `High Score Rank: #${myHighScorePos()}`);
+        y += 36 + 8;
+        font.drawSizedAligned(section_style, 0, y,
+          Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, 'Refresh to view scores or play again');
+        y += 36 + 8;
+      }
+      return;
+    }
 
     if (score.money !== level_won_saved.money &&  glov_ui.buttonText({
       x: game_width / 2 - 400 - 20,
@@ -1627,31 +1762,6 @@ export function main(canvas)
       game_state = gameplayInit;
     }
 
-
-    let x = 40;
-    const section_style = glov_font.style(null, {
-      outline_width: 3,
-      outline_color: 0x00000080,
-      color: 0xFFFFFFff
-    });
-
-    if (level_num + 1 === max_levels) {
-      y += 36 + 8;
-      font.drawSizedAligned(section_style, 0, y,
-        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, 'All levels complete!');
-      y += 36 + 8;
-      font.drawSizedAligned(section_style, 0, y,
-        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, 'Thanks for playing!');
-      y += 36 + 8;
-      y += 36 + 8;
-      font.drawSizedAligned(section_style, 0, y,
-        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Deaths: ${score.retries}`);
-      y += 36 + 8;
-      font.drawSizedAligned(section_style, 0, y,
-        Z.UI, 36, glov_font.ALIGN.HCENTERFIT, game_width, 0, `Total Cash Earned: \$${score.money_total}`);
-      y += 36 + 8;
-      return;
-    }
 
     font.drawSized(section_style, x, y, Z.UI, 36, 'BUY NEW CARDS:');
     y += 36 + 8;
@@ -1742,7 +1852,7 @@ export function main(canvas)
 
   levelWonInit = function (dt) {
     score_system.setScore('all', { level: level_num, deaths: score.retries, money: score.money_total }, function () {
-      // have_scores = true;
+      have_scores = true;
     });
 
     cardsToDeck();
