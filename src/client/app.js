@@ -1604,6 +1604,30 @@ export function main(canvas)
     glov_ui.drawRect(20, y, game_width - 20, game_height - 20, Z.UI - 1, [0.2, 0.2, 0.2, 1]);
     y += 20;
 
+    if (score.money !== level_won_saved.money &&  glov_ui.buttonText({
+      x: game_width / 2 - 400 - 20,
+      y: game_height - 64 - 40,
+      z: Z.UI + 10,
+      font_height: 48,
+      text: 'UNDO'
+    })) {
+      score.money = level_won_saved.money;
+      cards_for_sale = util.clone(level_won_saved.cards);
+      deck = util.clone(level_won_saved.deck);
+    }
+
+    if (glov_ui.buttonText({
+      x: game_width / 2 + 20,
+      y: game_height - 64 - 40,
+      z: Z.UI + 10,
+      font_height: 48,
+      text: level_won_is_victory ? 'Next Level' : 'Retry Level',
+    })) {
+      level_num++;
+      game_state = gameplayInit;
+    }
+
+
     let x = 40;
     const section_style = glov_font.style(null, {
       outline_width: 3,
@@ -1637,7 +1661,7 @@ export function main(canvas)
       let afford = cost <= score.money;
       let xx = x + (card_w * scale + 8) * ii;
       let yy = y;
-      let z = Z.UI + ii * 10;
+      let z = Z.UI;
       let bounds = {
         x: xx,
         y: yy,
@@ -1683,7 +1707,7 @@ export function main(canvas)
         xx = x;
       }
       let yy = y;
-      let z = Z.UI + ii * 10;
+      let z = Z.UI;
       let bounds = {
         x: xx,
         y: yy,
@@ -1713,27 +1737,6 @@ export function main(canvas)
         score.money -= TRASH_COST;
         deck.splice(ii, 1);
       }
-    }
-
-    if (score.money !== level_won_saved.money &&  glov_ui.buttonText({
-      x: game_width / 2 - 400 - 20,
-      y: game_height - 64 - 40,
-      font_height: 48,
-      text: 'UNDO'
-    })) {
-      score.money = level_won_saved.money;
-      cards_for_sale = util.clone(level_won_saved.cards);
-      deck = util.clone(level_won_saved.deck);
-    }
-
-    if (glov_ui.buttonText({
-      x: game_width / 2 + 20,
-      y: game_height - 64 - 40,
-      font_height: 48,
-      text: level_won_is_victory ? 'Next Level' : 'Retry Level'
-    })) {
-      level_num++;
-      game_state = gameplayInit;
     }
   };
 
