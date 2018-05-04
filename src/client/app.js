@@ -1261,7 +1261,7 @@ export function main(canvas)
         glov_ui.drawRect(x - health_width / 2, health_y, x + health_width / 2, health_y + health_height, Z.SPRITES + 10, [0.5, 0, 0, 1]);
         glov_ui.drawRect(x - health_width / 2, health_y, x - health_width / 2 + health_width * e.hp / e.max_hp, health_y + health_height, Z.SPRITES + 11, [0, 0.5, 0, 1]);
       }
-      draw_list.queue(sprites.enemies[e.name],
+      draw_list.queueInt(sprites.enemies[e.name],
         x, y, Z.SPRITES, color,
         enemy_scale);
     }
