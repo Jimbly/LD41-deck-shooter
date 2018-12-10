@@ -967,10 +967,9 @@ export function main(canvas)
     bullets = [];
     spawns = [];
     level_timestamp = 0;
-    if (DEBUG && false) {
+    if (DEBUG && true) {
       let rand = random_seed.create('test');
-      spawnOne(rand, 'drone', 0);
-      spawnOne(rand, 'drone', 120000);
+      spawnPair('large1', 0);
       // let rand = random_seed.create('test');
       // spawnDrones(0, 0);
       // spawnOne(rand, 'large1', 0);
